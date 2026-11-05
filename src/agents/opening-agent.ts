@@ -40,3 +40,20 @@ export function tagOpenings(segments: Segment[]) {
     )
     .map((s) => ({ ...s, tag: "interactive_ritual_opening" as const }));
 }
+
+/** Tag ritual openings in a pasted or typed transcript. Text-based cues only: every line is
+ *  treated as a possible opening line, since pasted transcripts carry no timestamps. */
+export function tagTranscriptOpenings(transcript: string): string[] {
+  const segments: Segment[] = transcript
+    .split(/\n+/)
+    .map((line) => ({ start: 0, end: 1, text: line }))
+    .filter((s) => s.text.trim().length > 0);
+  const tagged = new Set(tagOpenings(segments).map((s) => s.text));
+  return rituals.filter((r) =>
+    [...tagged].some((text) =>
+      new RegExp(`(?:^|\\s)${normalize(r)}(?:$|\\s)`, "u").test(
+        normalize(text),
+      ),
+    ),
+  );
+}
