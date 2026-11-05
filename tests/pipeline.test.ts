@@ -1,7 +1,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hashAudio, createManifest } from "../src/agents/provenance-agent";
-import { tagOpenings } from "../src/agents/opening-agent";
+import { tagOpenings, tagTranscriptOpenings } from "../src/agents/opening-agent";
 import type { Story } from "../src/types";
 test("SHA-256 matches known bytes and preserves original audio", async () => {
   const audio = new Blob(["abc"]);
@@ -44,4 +44,15 @@ test("unsigned passport accurately records origin without fabricated credentials
   assert.equal(m["pam:region"], "Southern Africa");
   assert.equal(m["pam:deviceSignature"], null);
   assert.equal(m["pam:c2paStatus"], "requires-external-signer");
+});
+test("transcript tagging finds openings in pasted text, keeping native spelling", () => {
+  const tags = tagTranscriptOpenings(
+    "Padangokhala! Tilitonse!\nOnce there was a clever hare.\nPadangokhala!",
+  );
+  assert.deepEqual(tags, ["Padangokhala!", "Tilitonse!"]);
+  assert.deepEqual(tagTranscriptOpenings("An ordinary sentence."), []);
+  assert.deepEqual(
+    tagTranscriptOpenings("Iro nwanụ! A proverb follows."),
+    ["Iro nwanụ!"],
+  );
 });
