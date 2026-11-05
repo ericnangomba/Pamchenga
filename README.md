@@ -2,9 +2,11 @@
 
 An offline-first TypeScript PWA for preserving African oral stories. Record or import audio, retain its original bytes, store metadata in IndexedDB, listen locally, add native-language notes, and export audio and unsigned JSON-LD passports.
 
-## Download and preview
+## Deploy to Netlify
 
-The repository includes `pamchenga-preview.zip`, a ready-to-deploy production build. Download it from GitHub, extract it, and upload the extracted folder containing `index.html` to https://app.netlify.com/drop. No local build is required. The ZIP must be regenerated from `dist` after application changes.
+Connect this repository to a Netlify site and use the settings in `netlify.toml`: Netlify installs dependencies with `npm ci`, runs `npm run build`, and publishes `dist`. The `public/_headers` file sets security and service-worker revalidation headers and is included in the production output for both Git-connected and manual deployments. The site is a static PWA; its service worker and microphone capture require HTTPS, which Netlify provides. Netlify does not provide the app's optional `/api/stories` sync backend, transcription, C2PA signing or remote storage. Story audio and lesson records remain in each browser's IndexedDB.
+
+The repository also includes `pamchenga-preview.zip` for manual deployment: extract it and drag the extracted contents (with `index.html` at the root) to https://app.netlify.com/drop. Regenerate the ZIP from `dist` after application changes.
 
 GitHub **Code → Download ZIP** downloads the source repository, including this deployment ZIP. To develop the source, follow the steps below.
 
@@ -24,11 +26,11 @@ Microphone, Web Crypto and service workers require HTTPS or localhost. Allow mic
 ```sh
 npm test
 npm run build
-npm run preview -- --port 4173
+npm run preview
 node tests/browser.mjs
 ```
 
-The browser integration check uses `/usr/bin/chromium` and fake microphone input, exercising capture, hashing, reload persistence, notes, export, retry scheduling, offline shell loading and mobile overflow. The preview server must be running. Service workers cache visited application assets for subsequent offline use; use the production build when verifying offline behavior. Development HMR is not an offline production workflow.
+The browser integration check uses Playwright Chromium and fake microphone input, exercising capture, hashing, reload persistence, notes, export, retry scheduling, offline shell loading and mobile overflow. The preview server must be running. If Chromium is installed at a non-default path, set `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` to its executable before running the test. Service workers cache the application shell and production assets at installation so the first controlled page can reload offline; use the production build when verifying offline behavior. Development HMR is not an offline production workflow.
 
 ## Pipeline boundaries
 
@@ -47,6 +49,8 @@ Only the service worker sends network sync requests. The UI first commits record
 Provide a same-origin `POST /api/stories` endpoint accepting multipart `audio` and JSON `metadata`. Honor `Idempotency-Key` to avoid duplicate stories. Return JSON `{ "id": "<story id>", "audioSha256": "<verified audio hash>" }` only after durable storage and verification. Static hosting alone has no sync endpoint: stories stay queued, never falsely marked synced. Add authentication, access controls, consent-aware sharing and server-side validation before exposing this service. C2PA signing must be performed by a real configured signer and verified before showing a signed state.
 
 The install action appears when the browser offers installation; supported browsers also offer installation through their own menu. No remote fonts or assets are required.
+
+Deployment exposes a static build only. It does not configure a custom domain, connect a Netlify account, or provision a sync API.
 
 ## Education workflow and Codex evidence
 

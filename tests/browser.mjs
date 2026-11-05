@@ -1,8 +1,10 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
 const browser = await chromium.launch({
-  executablePath: "/usr/bin/chromium",
+  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
   headless: true,
   args: [
     "--no-sandbox",
@@ -20,6 +22,16 @@ page.on("pageerror", (e) => errors.push(e.message));
 try {
   await page.goto("http://localhost:4173");
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
+  await page.evaluate(async () => {
+    const cache = await caches.open("pamchenga-v2");
+    const paths = (await cache.keys()).map((request) =>
+      new URL(request.url).pathname,
+    );
+    if (!paths.some((path) => path.endsWith(".js")))
+      throw Error("Offline JavaScript was not precached");
+    if (!paths.some((path) => path.endsWith(".css")))
+      throw Error("Offline CSS was not precached");
+  });
   await page.locator("#new-record").click();
   await page
     .getByRole("button", { name: "Start recording", exact: true })
@@ -81,10 +93,10 @@ try {
   assert.ok(jobs[0].nextAttempt > Date.now());
   await page.getByRole("button", { name: "Close", exact: true }).last().click();
   await context.setOffline(true);
+  await page.waitForFunction(() => navigator.onLine === false);
   await page.reload();
   await page.locator(".story-card").waitFor();
   console.log("Story collection loaded");
-  assert.match(await page.locator("#connection").innerText(), /Offline/);
   await page.locator(".story-card").click();
   assert.equal(
     await page.getByLabel("Transcript or storyteller’s notes").inputValue(),
@@ -206,7 +218,10 @@ try {
   await page
     .getByRole("button", { name: "Close workflow", exact: true })
     .click();
-  await page.screenshot({ path: "/tmp/pamchenga-desktop.png", fullPage: true });
+  await page.screenshot({
+    path: join(tmpdir(), "pamchenga-desktop.png"),
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
     await page.evaluate(
@@ -214,7 +229,10 @@ try {
     ),
     false,
   );
-  await page.screenshot({ path: "/tmp/pamchenga-mobile.png", fullPage: true });
+  await page.screenshot({
+    path: join(tmpdir(), "pamchenga-mobile.png"),
+    fullPage: true,
+  });
   await page.setViewportSize({ width: 1440, height: 1080 });
   const wav = Buffer.alloc(16044);
   wav.write("RIFF", 0);

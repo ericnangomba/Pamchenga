@@ -11,6 +11,7 @@ The initial intended beneficiaries are teachers and community facilitators worki
 3. The teacher writes a learning objective, a native proverb and its meaning, a discussion question and a short activity. These are human-authored materials, not automated cultural judgments.
 4. The teacher records separate permission for classroom use before exporting a credited Markdown handout.
 5. Learners listen, discuss the proverb in their own language, and retell or illustrate its lesson. The facilitator can record the number of sessions delivered.
+6. When hosted on Netlify or another HTTPS static host, the facilitator can install the PWA and revisit cached assets offline. Stories and lesson cards remain local to that browser; public hosting does not publish private recordings.
 
 ## What the app measures
 
@@ -22,4 +23,4 @@ With an actual consenting school/community partner: assess teacher preparation t
 
 ## Limits
 
-Browser storage may be evicted; export originals and lesson cards for backup. Classroom permission is a facilitator attestation, not a legal clearance service. A chosen license can still impose additional community conditions. Offline lesson preparation works now; automatic transcription, C2PA signing and remote sync still need their external services.
+Browser storage may be evicted; export originals and lesson cards for backup. Classroom permission is a facilitator attestation, not a legal clearance service. A chosen license can still impose additional community conditions. Offline lesson preparation works now; automatic transcription, C2PA signing and remote sync still need their external services. Netlify static hosting does not implement the optional `/api/stories` endpoint, and deployment provides no analytics or education outcome evidence.

@@ -24,3 +24,10 @@ Teachers and community facilitators in Chichewa-speaking Malawian communities ne
 Run npm test, npm run build and node tests/browser.mjs against the production preview. Review storage writes for lost updates and consent checks, and inspect mobile layout. Write actual results in docs/REVIEW.md, update docs/IMPACT.md and README.md, regenerate the deployment ZIP, commit and push to the authorized repository.
 
 This file records repository-based planning. It does not claim that a special Codex UI plan mode or parallel agents were used.
+
+## Netlify static deployment
+
+- **Beneficiaries and journey:** Teachers, community facilitators and storytellers can open the installed PWA from a secure public HTTPS host, then continue using browser-local stories and lessons offline.
+- **Scope:** Configure Netlify to install the locked dependencies, run the existing production build and publish `dist`. Keep service-worker updates reliable by preventing stale HTML and service-worker responses, and precache fingerprinted production JavaScript and CSS during service-worker installation so the first controlled visit can reload offline. Do not invent a sync API, move private recordings to a remote service, or imply that a Netlify deployment supplies signing or transcription integrations.
+- **Acceptance:** The production build and existing unit/browser checks pass; deployment settings target the root of the production output, and a production preview serves the app and service worker. Document that linking/publishing a live Netlify site requires an authorized Netlify account and site.
+- **Data and integration limits:** No application data/schema changes. Stories and lesson cards remain in IndexedDB on each user's browser. Static hosting does not implement `/api/stories`; sync remains unavailable until a separately configured backend exists.

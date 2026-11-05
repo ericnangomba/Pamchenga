@@ -1,11 +1,18 @@
-const CACHE = "pamchenga-v1";
+const CACHE = "pamchenga-v2";
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches
-      .open(CACHE)
-      .then((cache) =>
-        cache.addAll(["/", "/icon.svg", "/manifest.webmanifest"]),
-      ),
+    (async () => {
+      const cache = await caches.open(CACHE);
+      await cache.addAll(["/", "/icon.svg", "/manifest.webmanifest"]);
+      const shell = await cache.match("/");
+      if (!shell) throw Error("App shell was not cached");
+      const html = await shell.text();
+      const assets = [
+        ...html.matchAll(/(?:src|href)="(\/assets\/[^"]+\.(?:js|css))"/g),
+      ].map((match) => match[1]);
+      if (assets.length === 0) throw Error("Production assets were not found");
+      await cache.addAll(assets);
+    })(),
   );
   self.skipWaiting();
 });
@@ -29,6 +36,18 @@ self.addEventListener("fetch", (event) => {
     url.pathname.startsWith("/api/")
   )
     return;
+  if (url.pathname.startsWith("/assets/")) {
+    event.respondWith(
+      caches.open(CACHE).then(async (cache) => {
+        const cached = await cache.match(event.request);
+        if (cached) return cached;
+        const response = await fetch(event.request);
+        if (response.ok) await cache.put(event.request, response.clone());
+        return response;
+      }),
+    );
+    return;
+  }
   event.respondWith(
     fetch(event.request)
       .then((response) => {

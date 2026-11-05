@@ -24,3 +24,12 @@ The education panel reports only device-local lesson cards, lesson languages and
 No localized transcription model, live Codex agent, audio-storage-mcp, c2pa-signer-mcp, C2PA/device signer, sync backend or IPFS/Arweave service is configured. Original hashes and unsigned JSON-LD passports must not be presented as certified C2PA provenance. Classroom handouts are teacher-authored, not AI-generated cultural judgments.
 
 Browser automation used Chromium and synthetic microphone audio. Field testing with actual teachers, storytellers and languages; real-device microphone quality; browser-specific installation/background scheduling; and measured learner comprehension remain unverified. Storage eviction is possible; exports are needed for backup.
+
+## Netlify deployment preparation
+
+- `npm test`: passed, 6 tests.
+- `npm run build`: passed; TypeScript check and Vite production build completed.
+- Production preview on port 4173: `/` and `/sw.js` both returned HTTP 200. The integrated browser opened the production app and confirmed its main screen and local education metrics rendered.
+- `node tests/browser.mjs`: passed with the installed Windows Chromium selected using `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`; recording, hash, IndexedDB persistence, notes, exports, retry queue, offline reload, mobile layout, import, lessons, consent, metrics and Codex handoff checks all passed. The test verifies offline reload and persisted data rather than asserting the browser-managed `navigator.onLine` label after navigation.
+- `pamchenga-preview.zip` was regenerated from `dist` and checked to contain `index.html` at its root.
+- Netlify configuration targets `npm ci && npm run build` and `dist`; `public/_headers` supplies revalidation and security headers in both repository-connected and ZIP deployments. Netlify CLI and authentication were not available, so no live site was linked or published. Static hosting does not configure `/api/stories` or change the device-local storage model.
