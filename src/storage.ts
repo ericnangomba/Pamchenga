@@ -76,3 +76,37 @@ export async function queueStory(id: string): Promise<void> {
     };
   });
 }
+
+/** Merge editable metadata in one transaction so notes and lesson saves cannot erase each other. */
+export async function updateStoryMetadata(
+  id: string,
+  changes: Partial<Pick<Story, "transcript" | "learning">>,
+): Promise<Story> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("stories", "readwrite");
+    const store = tx.objectStore("stories");
+    const request = store.get(id);
+    let updated: Story | undefined;
+    request.onsuccess = () => {
+      if (!request.result) {
+        tx.abort();
+        return;
+      }
+      updated = { ...(request.result as Story), ...changes };
+      store.put(updated);
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(updated!);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error ?? new Error("The original story is unavailable."));
+    };
+  });
+}

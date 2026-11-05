@@ -7,3 +7,5 @@ Preserve original audio bytes, tone marks, click consonants, laughter, chants an
 Persist capture and metadata in IndexedDB before enqueueing any network operation. Only the service worker sends sync requests; use durable exponential retries. Do not send personal recordings without explicit user action.
 Never label a hash or a device signature as a verified C2PA credential. C2PA requires a real signer, embedded manifest and verification. Never invent transcription, signatures or IPFS/Arweave identifiers.
 Use .agents/skills/pamchenga-orchestrator/SKILL.md for the cultural pipeline. MCP adapters require actual configured services; browser fallback storage must be identified as such.
+
+For feature work use .agents/skills/pamchenga-development/SKILL.md across planning, building, review and documentation. Keep docs/PLAN.md, docs/REVIEW.md and docs/IMPACT.md consistent with actual behavior. The Built with Codex app panel is evidence of the development workflow, not a live AI connection. Education metrics must derive from local lesson records; classroom permission is distinct from recording permission. Preserve unrelated metadata when updating a story.

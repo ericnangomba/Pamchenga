@@ -47,3 +47,11 @@ Only the service worker sends network sync requests. The UI first commits record
 Provide a same-origin `POST /api/stories` endpoint accepting multipart `audio` and JSON `metadata`. Honor `Idempotency-Key` to avoid duplicate stories. Return JSON `{ "id": "<story id>", "audioSha256": "<verified audio hash>" }` only after durable storage and verification. Static hosting alone has no sync endpoint: stories stay queued, never falsely marked synced. Add authentication, access controls, consent-aware sharing and server-side validation before exposing this service. C2PA signing must be performed by a real configured signer and verified before showing a signed state.
 
 The install action appears when the browser offers installation; supported browsers also offer installation through their own menu. No remote fonts or assets are required.
+
+## Education workflow and Codex evidence
+
+The intended initial use case is teachers and community facilitators working with Chichewa-speaking learners in Malawi where connectivity is intermittent. See [the impact model](docs/IMPACT.md) for beneficiaries, the concrete classroom journey, meaningful activity indicators and limitations. No school partnership or measured learning gain is claimed.
+
+Open a saved story and use **Prepare a learning card** to write an audience, objective, native proverb and meaning, discussion question and activity. Cards remain editable offline and persist in IndexedDB with their source story. Separate classroom permission is required before exporting a credited Markdown handout. Unsaved changes must be saved before export. Recording permission alone does not grant classroom use. The learning panel counts device-local lesson cards, languages with lessons and facilitator-reported sessions; it does not invent learner reach or outcomes.
+
+The app’s **Built with Codex** panel exposes the actual [plan](docs/PLAN.md), [architecture rules](AGENTS.md), [review evidence](docs/REVIEW.md), [impact documentation](docs/IMPACT.md) and reusable development skill. Export its engineering handoff to continue work with Codex. The handoff contains public repository context only, no private story or lesson data. This is evidence of Codex’s development workflow; no live Codex agent is embedded in the browser. Repository planning was used; special UI plan mode and parallel agents are not claimed.

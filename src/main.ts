@@ -1,5 +1,15 @@
 import "./style.css";
-import { getStories, saveStory, queueStory } from "./storage";
+import {
+  mountLearningPanel,
+  updateLearningMetrics,
+  attachLearningEditor,
+} from "./learning-ui";
+import {
+  getStories,
+  saveStory,
+  queueStory,
+  updateStoryMetadata,
+} from "./storage";
 import { hashAudio, createManifest } from "./agents/provenance-agent";
 import type { Story, Region } from "./types";
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -58,7 +68,9 @@ app.innerHTML = `<aside class="sidebar"><a class="brand" href="/" aria-label="Pa
   )}</nav><div class="sidebar-note"><div class="little-circle">✳</div><h3>Every voice belongs.</h3><p>A story shared is a thread that connects generations.</p><span>ROOTED IN UBUNTU</span></div><div class="profile"><div class="avatar">Y</div><div>Your sand circle<small>Personal collection · This device</small></div><span>⌄</span></div></aside><div class="workspace"><header><div class="breadcrumb">Your gathering place <span>/</span> <strong id="crumb">My circle</strong></div><div class="header-right"><span id="connection" class="status"><i></i> Online · local-first</span><button id="install" class="quiet" hidden>Install app →</button><div class="avatar small">Y</div></div></header><main><section class="page-heading"><div><div class="eyebrow">A PLACE FOR OUR STORIES</div><h1 id="page-title">Welcome to your circle<span>.</span></h1><p>Gather the voices of today. Keep the wisdom for tomorrow.</p></div><button class="button primary" id="new-record"><span>＋</span> Record a story</button></section><section class="hero"><div class="hero-copy"><div class="hero-label"><span></span> OUR STORIES. OUR ROOTS. OUR FUTURE.</div><h2>Before there were books,<br>there was a circle.</h2><p>From the first “Padangokhala!” to the last lesson,<br>preserve every voice, song, and moment in between.</p><button class="button sand" id="hero-record">● &nbsp; Start your first story <span>→</span></button><div class="hero-foot">◌ &nbsp; Made to gather stories, even offline.</div></div><div class="circle-art" aria-hidden="true"><div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div><div class="orbit o4"></div><div class="orbit o5"></div><div class="sun"></div><div class="flame f1"></div><div class="flame f2"></div><span class="person p1"></span><span class="person p2"></span><span class="person p3"></span><span class="person p4"></span><span class="person p5"></span><span class="person p6"></span><span class="art-caption">PAMCHENGA · TOGETHER IN THE SAND</span></div></section><section class="stats"><div><span class="stat-icon">▤</span><div><strong id="story-total">0</strong><span>Stories preserved</span></div><small>Our living archive</small></div><div><span class="stat-icon">◷</span><div><strong id="minutes-total">0 min</strong><span>Voices captured</span></div><small>Every moment matters</small></div><div><span class="stat-icon">◎</span><div><strong id="language-total">0</strong><span>Languages celebrated</span></div><small>In their own words</small></div></section><section id="collection"><div class="collection-heading"><div><h2 id="collection-title">Around the circle</h2><p id="collection-subtitle">Your stories, safe and close to home.</p></div><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Find a story…" aria-label="Find a story"></label></div><div class="filter-row"><div class="tabs">${["All stories", "Southern Africa", "East Africa", "West Africa"].map((s, i) => `<button data-filter="${s}" class="tab ${i === 0 ? "selected" : ""}">${s}</button>`).join("")}</div><button id="import" class="quiet">↑ &nbsp; Import audio</button><input type="file" id="audio-file" accept="audio/*" hidden></div><div id="story-grid" class="story-grid"></div></section><section class="values"><div><span>⌁</span><div><h3>Keep the whole story</h3><p>The opening chants. The laughter. The songs.</p></div></div><div><span>▧</span><div><h3>Yours, wherever you are</h3><p>Saved on your device. Ready without internet.</p></div></div><div><span>◇</span><div><h3>A traceable beginning</h3><p>Original audio fingerprinted at capture.</p></div></div></section><footer><span>Pamchenga <b>·</b> A living memory, carried together.</span><span>Built on community. Rooted in Africa. <span class="footer-mark">✳</span></span></footer></main></div><div id="toast" role="status"></div><dialog id="capture-dialog"><form id="capture-form"><div class="dialog-top"><span class="eyebrow">ADD TO THE CIRCLE</span><button type="button" class="close" data-close="capture-dialog" aria-label="Close">×</button></div><h2>Every story starts with a voice.</h2><p class="muted">Record with the storyteller’s permission. Rituals and ambient sounds are preserved.</p><div class="recorder"><div class="record-orb" id="record-orb">●</div><strong id="record-time">00:00</strong><span id="record-status">Take a moment. Gather your circle.</span><button type="button" id="toggle-record" class="button primary">Start recording</button></div><label>Story title<input name="title" required maxlength="160" placeholder="Give this memory a name"></label><div class="form-row"><label>Storyteller<input name="storyteller" required maxlength="120" placeholder="Who carries this story?"></label><label>Location<input name="location" required maxlength="160" placeholder="Village, city, country"></label></div><div class="form-row"><label>Region<select aria-label="Region" name="region"><option>Southern Africa</option><option>East Africa</option><option>West Africa</option></select></label><label>Language<input aria-label="Language" name="language" required maxlength="80" placeholder="e.g. Chichewa" list="languages"><datalist id="languages"><option>Chichewa</option><option>isiZulu</option><option>isiXhosa</option><option>Shona</option><option>Kiswahili</option><option>Hausa</option><option>Yoruba</option><option>Igbo</option><option>Wolof</option></datalist></label></div><label>Community license<select aria-label="Community license" name="license"><option>Community Tribal Copyright</option><option>CC BY-NC-SA 4.0</option></select></label><label class="consent"><input name="consent" type="checkbox" required> I have permission to record and store this story on this device.</label><p id="capture-error" class="error" role="alert"></p><button id="save" class="button primary wide" type="submit" disabled>Save story on this device</button></form></dialog><dialog id="detail-dialog"><div id="detail"></div></dialog>`;
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
   document.querySelector<T>(selector)!;
+mountLearningPanel(download);
 function render() {
+  updateLearningMetrics(stories);
   $("#story-total").textContent = String(stories.length);
   $("#nav-count").textContent = String(stories.length);
   $("#minutes-total").textContent =
@@ -276,6 +288,11 @@ function showStory(s: Story) {
   playbackUrl = URL.createObjectURL(s.audio);
   $("#detail").innerHTML =
     `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Automatic transcription and wisdom extraction await a localized model connection.</p><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for sync →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p>`;
+  attachLearningEditor(s, download, async (updated) => {
+    s = updated;
+    stories = await getStories();
+    render();
+  });
   $("#close-detail").onclick = () =>
     $<HTMLDialogElement>("#detail-dialog").close();
   $("#export-audio").onclick = () =>
@@ -292,11 +309,9 @@ function showStory(s: Story) {
     );
   $("#save-notes").onclick = async () => {
     try {
-      const updated = {
-        ...s,
+      const updated = await updateStoryMetadata(s.id, {
         transcript: $<HTMLTextAreaElement>("#transcript").value,
-      };
-      await saveStory(updated);
+      });
       s = updated;
       stories = await getStories();
       toast("Notes saved on this device.");
