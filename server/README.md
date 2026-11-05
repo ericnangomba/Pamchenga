@@ -1,3 +1,5 @@
+> The selected public-site deployment is now Netlify + Groq. See [Netlify activation](../netlify/README.md). This Python service remains an optional self-hosted mode for larger/private deployments.
+
 # Whisper Large V3 / Turbo backend
 
 Runs genuine OpenAI Whisper checkpoints using `faster-whisper`/CTranslate2. This is self-hosted inference, not an OpenAI-hosted API or a live Codex service. Neither model weights nor a backend are contained in the static deployment ZIP.
@@ -57,3 +59,7 @@ Backend tests inject model doubles and browser Whisper tests use a local HTTP fi
 In this cloud task, package installation and backend startup succeeded, but neither requested checkpoint was cached and Hugging Face access returned an explicit network-policy 403. Actual Large V3/Turbo inference therefore remains unverified. Required model-host additions (`huggingface.co`, `cas-bridge.xethub.hf.co`) were saved in the environment configuration draft; review and save those settings, then publish the environment. Saving a draft alone does not apply access or download weights. Follow any observed additional download-host requirement rather than bypassing the policy. After access is available, run the explicit model preparation command, restart the service and transcribe a consented recording to validate actual recognition.
 
 Official references: [OpenAI Whisper](https://github.com/openai/whisper), [Whisper announcement](https://openai.com/index/whisper/), [faster-whisper](https://github.com/SYSTRAN/faster-whisper).
+
+## Subsequent live verification
+
+After the environment was published with working network access, Turbo and Large V3 weights downloaded successfully. A real decode exposed an incompatibility between faster-whisper 1.2.1 and PyAV 19's removed `metadata_errors` parameter; `server/requirements.txt` now pins the verified PyAV 16.1.0 version. Real API inference passed on OpenAI's public `tests/jfk.flac` English sample: Turbo in 8.1 seconds and Large V3 in 12.1 seconds, with timestamps and original hash checks. The actual browser PWA workflow passed with Turbo. This resolves the earlier cloud-download blocker for the current runtime, but does not connect a public Netlify site automatically or establish dialect accuracy. No cloud environment was republished during that verification.

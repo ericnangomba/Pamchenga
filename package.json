@@ -5,12 +5,14 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0",
-    "build": "tsc --noEmit && vite build",
+    "build": "tsc --noEmit && tsc --project tsconfig.functions.json && vite build",
     "preview": "vite preview --host 0.0.0.0",
     "test": "tsx --test tests/*.test.ts"
   },
   "devDependencies": {
+    "@netlify/functions": "^6.1.0",
     "@playwright/test": "^1.56.1",
+    "@types/node": "^26.6.6",
     "prettier": "^3.9.10",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",

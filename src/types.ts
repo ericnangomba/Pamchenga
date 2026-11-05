@@ -60,6 +60,8 @@ export interface TranscriptionJob {
   attempts: number;
   nextAttempt: number;
   accepted: boolean;
+  hosted?: boolean;
+  needsAccess?: boolean;
   error?: string;
   createdAt: string;
 }

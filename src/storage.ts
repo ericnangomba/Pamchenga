@@ -1,3 +1,4 @@
+import { hostedWhisper, maxTranscriptionBytes } from "./transcription-config";
 import { tagTranscriptOpenings } from "./agents/opening-agent";
 import type { Story, SyncJob, TranscriptionJob, WhisperModel } from "./types";
 export function openDatabase(): Promise<IDBDatabase> {
@@ -136,7 +137,7 @@ export async function queueTranscription(
         tx.abort();
         return;
       }
-      if (request.result.audio.size > 100 * 1024 * 1024) {
+      if (request.result.audio.size > maxTranscriptionBytes) {
         tx.abort();
         return;
       }
@@ -157,6 +158,7 @@ export async function queueTranscription(
           attempts: 0,
           nextAttempt: Date.now(),
           accepted: false,
+          hosted: hostedWhisper,
           createdAt: new Date().toISOString(),
         };
         if (!pending) store.put(job);
@@ -174,7 +176,9 @@ export async function queueTranscription(
       db.close();
       reject(
         tx.error ??
-          Error("Save audio first. Whisper uploads must be under 100 MiB."),
+          Error(
+            `Save audio first. Whisper uploads must fit the selected service limit (${hostedWhisper ? 4 : 100} MiB).`,
+          ),
       );
     };
   });

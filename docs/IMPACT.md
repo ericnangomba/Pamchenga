@@ -24,3 +24,7 @@ With an actual consenting school/community partner: assess teacher preparation t
 ## Limits
 
 Browser storage may be evicted; export originals and lesson cards for backup. Classroom permission is a facilitator attestation, not a legal clearance service. A chosen license can still impose additional community conditions. Offline lesson preparation works now; Whisper transcription now has an optional self-hosted backend but needs downloaded weights and human review; C2PA signing and remote sync still need their external services. Netlify static hosting does not implement the optional `/api/stories` endpoint, and deployment provides no analytics or education outcome evidence.
+
+## Hosted-transcription rollout
+
+The selected Netlify/Groq pilot can reduce a facilitator's manual transcription work while preserving local audio and human review. A circle organizer supplies a pilot access code and enables server-side provider credentials; the app asks explicit permission to send each recording to Groq. Hosted transcription is limited to 4 MiB originals by the gateway. Longer recordings still work for local listening, notes and lessons, and the optional Python mode supports larger transcription uploads. This size/hosting tradeoff is explicit, not an invented claim that all long storytelling sessions can already be transcribed through Netlify. Hosted recognition awaits live credentials; no additional school adoption or learning-outcome evidence is claimed.

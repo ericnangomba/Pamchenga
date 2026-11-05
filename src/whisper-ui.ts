@@ -1,3 +1,4 @@
+import { hostedWhisper, maxTranscriptionBytes } from "./transcription-config";
 import {
   getStories,
   getTranscriptionJobs,
@@ -17,11 +18,28 @@ export function attachWhisperEditor(
     .querySelector("#detail")!
     .insertAdjacentHTML(
       "beforeend",
-      `<section class="whisper-editor" aria-labelledby="whisper-title"><span class="eyebrow">FOLKLORE AGENT · SPEECH TO TEXT</span><h3 id="whisper-title">Transcribe with OpenAI Whisper</h3><p class="muted">Large V3 / Turbo · Multilingual models covering 99+ languages. Accuracy varies by language, dialect and recording. Chichewa and isiZulu are not explicit language hints in these models; automatic detection may be incorrect. Review every native spelling, tone mark and opening chant.</p><form id="whisper-form"><div class="form-row"><label>Whisper model<select aria-label="Whisper model" name="model"><option value="turbo">Turbo · faster transcription</option><option value="large-v3">Large V3 · larger model</option></select></label><label>Whisper language hint<select aria-label="Whisper language hint" name="language"><option value="auto">Automatic detection</option><option value="sw">Kiswahili</option><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="sn">Shona</option><option value="af">Afrikaans</option><option value="am">Amharic</option><option value="so">Somali</option><option value="en">English</option></select></label></div><label>Names and spelling cues (optional)<textarea name="prompt" maxlength="1000" rows="2" placeholder="Native names or phrases that should keep their original spelling"></textarea></label><label class="consent"><input name="consent" type="checkbox" required> I have permission to send this original audio to the configured Whisper server for transcription.</label><p class="muted small-text">Queued locally first. Requires a same-origin Python backend with downloaded weights; a static Netlify ZIP alone cannot run these models. No OpenAI API key is sent from the browser. No cropping, translation, or voice-activity filter is applied. Audio uploads are deleted by the backend after processing.</p><button class="button primary" type="submit">Queue Whisper transcription</button></form><p id="whisper-status" class="small-text" role="status"></p><div id="whisper-draft" hidden><h4>Machine-generated draft · human review required</h4><p id="whisper-model-info" class="muted small-text"></p><pre id="whisper-text" class="transcript-draft" tabindex="0"></pre><p id="whisper-rituals" class="muted small-text"></p><label class="consent"><input id="whisper-reviewed" type="checkbox"> I have checked the wording, language, native spellings and ritual openings against the audio.</label><button class="button secondary" id="apply-whisper" type="button">Append reviewed draft to notes</button></div></section>`,
+      `<section class="whisper-editor" aria-labelledby="whisper-title"><span class="eyebrow">FOLKLORE AGENT · SPEECH TO TEXT</span><h3 id="whisper-title">Transcribe with OpenAI Whisper</h3><p class="muted">Large V3 / Turbo · Multilingual models covering 99+ languages. Accuracy varies by language, dialect and recording. Chichewa and isiZulu are not explicit language hints in these models; automatic detection may be incorrect. Review every native spelling, tone mark and opening chant.</p>${hostedWhisper ? `<p class="notice">Hosted by Groq through this site. Maximum audio size: 4 MiB; longer originals remain saved without being cropped. Groq’s data-handling terms apply.</p><label>Transcription access code<input id="whisper-access-code" type="password" maxlength="128" autocomplete="off" placeholder="From your circle organizer; not a provider API key"></label><button id="use-whisper-access" class="button secondary" type="button">Use access code / resume</button><p class="muted small-text">The code stays in service-worker memory only. You may need to re-enter it after the browser restarts. Do not enter a Groq API key here.</p>` : ""}<form id="whisper-form"><div class="form-row"><label>Whisper model<select aria-label="Whisper model" name="model"><option value="turbo">Turbo · faster transcription</option><option value="large-v3">Large V3 · larger model</option></select></label><label>Whisper language hint<select aria-label="Whisper language hint" name="language"><option value="auto">Automatic detection</option><option value="sw">Kiswahili</option><option value="ha">Hausa</option><option value="yo">Yoruba</option><option value="sn">Shona</option><option value="af">Afrikaans</option><option value="am">Amharic</option><option value="so">Somali</option><option value="en">English</option></select></label></div><label>Names and spelling cues (optional)<textarea name="prompt" maxlength="${hostedWhisper ? 60 : 1000}" rows="2" placeholder="A few native names or spelling cues"></textarea></label><label class="consent"><input name="consent" type="checkbox" required> ${hostedWhisper ? "I have permission to send this original audio to Groq’s hosted Whisper service through this site for transcription." : "I have permission to send this original audio to the configured Whisper server for transcription."}</label><p class="muted small-text">${hostedWhisper ? "Queued locally before upload. The provider key stays on the server. Generated text requires your review. Retries can result in repeat provider charges. The original audio is sent intact; hosted decoding is controlled by the provider." : "Queued locally first. Requires a same-origin Python backend with downloaded weights. No OpenAI API key is sent from the browser. No cropping, translation, or voice-activity filter is applied. Audio uploads are deleted by the backend after processing."}</p><button class="button primary" type="submit">Queue Whisper transcription</button></form><p id="whisper-status" class="small-text" role="status"></p><div id="whisper-draft" hidden><h4>Machine-generated draft · human review required</h4><p id="whisper-model-info" class="muted small-text"></p><pre id="whisper-text" class="transcript-draft" tabindex="0"></pre><p id="whisper-rituals" class="muted small-text"></p><label class="consent"><input id="whisper-reviewed" type="checkbox"> I have checked the wording, language, native spellings and ritual openings against the audio.</label><button class="button secondary" id="apply-whisper" type="button">Append reviewed draft to notes</button></div></section>`,
     );
   const form = document.querySelector<HTMLFormElement>("#whisper-form")!;
   const root = document.querySelector<HTMLElement>(".whisper-editor")!;
   const status = root.querySelector<HTMLElement>("#whisper-status")!;
+  async function sendAccessCode() {
+    if (!hostedWhisper) return;
+    const code = root.querySelector<HTMLInputElement>(
+      "#whisper-access-code",
+    )!.value;
+    if (code) {
+      const registration = await navigator.serviceWorker.ready;
+      registration.active?.postMessage({ type: "SET_WHISPER_ACCESS", code });
+    }
+  }
+  root
+    .querySelector<HTMLButtonElement>("#use-whisper-access")
+    ?.addEventListener("click", async () => {
+      await sendAccessCode();
+      await requestSync().catch(() => {});
+      await refresh();
+    });
   let active = true;
   let polling = false;
   let displayedResultId = "";
@@ -90,6 +108,10 @@ export function attachWhisperEditor(
       const data = new FormData(form);
       if (!data.has("consent"))
         throw Error("Permission is required before sending audio.");
+      if (story.audio.size > maxTranscriptionBytes)
+        throw Error(
+          `This recording exceeds the ${hostedWhisper ? 4 : 100} MiB transcription limit. The original remains saved; it has not been cropped.`,
+        );
       await queueTranscription(
         story.id,
         String(data.get("model")) as WhisperModel,
@@ -99,6 +121,7 @@ export function attachWhisperEditor(
       status.textContent =
         "Saved locally. Whisper will run when the configured backend is available.";
       // Registration may fail in browsers without Background Sync; foreground messages still retry.
+      await sendAccessCode();
       await requestSync().catch(() => {});
       await refresh();
     } catch (error) {

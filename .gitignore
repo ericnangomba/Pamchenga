@@ -8,3 +8,5 @@ __pycache__/
 .whisper-data/
 .whisper-models/
 .env
+.env.*
+.netlify/

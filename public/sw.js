@@ -1,5 +1,5 @@
 import { validateWhisperResponse } from "/whisper-result.js";
-const CACHE = "pamchenga-v3";
+const CACHE = "pamchenga-v4";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -118,6 +118,8 @@ function put(db, job) {
   });
 }
 let running;
+// Pilot access codes are deliberately not persisted in IndexedDB or Cache Storage.
+let whisperAccessCode = "";
 function flush() {
   if (running) return running;
   running = Promise.allSettled([performFlush(), performTranscriptions()])
@@ -152,6 +154,34 @@ async function performFlush() {
           body: data,
           headers: { "Idempotency-Key": job.id },
         });
+        if (response.status === 401 && hosted) {
+          whisperAccessCode = "";
+          pending = true;
+          await saveTranscriptionJob(db, {
+            ...job,
+            status: "queued",
+            needsAccess: true,
+            error:
+              "The transcription access code was not accepted. Re-enter it to resume; the provider was not called.",
+            nextAttempt: Date.now() + 30000,
+          });
+          continue;
+        }
+        if (response.status === 502 && hosted) {
+          const failure = await response
+            .clone()
+            .json()
+            .catch(() => null);
+          if (failure?.code === "INVALID_TRANSCRIPT") {
+            await saveTranscriptionJob(db, {
+              ...job,
+              status: "failed",
+              error:
+                "The hosted provider returned invalid text or timestamps. No draft was saved; ask the organizer before retrying.",
+            });
+            continue;
+          }
+        }
         if (
           !response.ok ||
           !response.headers.get("content-type")?.includes("application/json")
@@ -182,6 +212,32 @@ self.addEventListener("sync", (event) => {
 });
 self.addEventListener("message", (event) => {
   if (event.data?.type === "SYNC") event.waitUntil(flush().catch(() => {}));
+  if (
+    event.data?.type === "SET_WHISPER_ACCESS" &&
+    typeof event.data.code === "string" &&
+    event.data.code.length <= 256
+  ) {
+    whisperAccessCode = event.data.code;
+    event.waitUntil(
+      (async () => {
+        const db = await database();
+        try {
+          for (const job of await read(db, "transcriptions")) {
+            if (job.needsAccess && job.status === "queued")
+              await saveTranscriptionJob(db, {
+                ...job,
+                needsAccess: false,
+                error: undefined,
+                nextAttempt: Date.now(),
+              });
+          }
+        } finally {
+          db.close();
+        }
+        await flush().catch(() => {});
+      })(),
+    );
+  }
 });
 
 function saveTranscriptionJob(db, job, result) {
@@ -216,6 +272,51 @@ async function performTranscriptions() {
       try {
         const story = await read(db, "stories", job.storyId);
         if (!story) throw Error("Original audio is unavailable");
+        const infoResponse = await fetch("/api/transcriptions/health", {
+          cache: "no-store",
+          signal: AbortSignal.timeout(10000),
+        });
+        if (
+          !infoResponse.ok ||
+          !infoResponse.headers
+            .get("content-type")
+            ?.includes("application/json")
+        )
+          throw Error(
+            "Whisper service is unavailable. Your original stays local.",
+          );
+        const service = await infoResponse.json();
+        if (
+          !["pamchenga-hosted-whisper", "pamchenga-whisper"].includes(
+            service.service,
+          )
+        )
+          throw Error("Unrecognized Whisper service; no audio was uploaded.");
+        const hosted = service.service === "pamchenga-hosted-whisper";
+        if (Boolean(job.hosted) !== hosted) {
+          await saveTranscriptionJob(db, {
+            ...job,
+            status: "failed",
+            error:
+              "The transcription provider changed. Queue a new request after reviewing its upload permission. Your original is unchanged.",
+          });
+          continue;
+        }
+        if (hosted && service.configured === false)
+          throw Error(
+            "The circle organizer must configure hosted transcription before audio can be uploaded.",
+          );
+        if (hosted && !whisperAccessCode) {
+          pending = true;
+          await saveTranscriptionJob(db, {
+            ...job,
+            needsAccess: true,
+            error:
+              "Enter the transcription access code supplied by your circle organizer to resume.",
+            nextAttempt: Date.now() + 30000,
+          });
+          continue;
+        }
         let response;
         if (job.accepted) {
           response = await fetch(
@@ -234,6 +335,9 @@ async function performTranscriptions() {
           response = await fetch("/api/transcriptions", {
             method: "POST",
             body: form,
+            headers: hosted
+              ? { "X-Pamchenga-Access-Code": whisperAccessCode }
+              : {},
             signal: AbortSignal.timeout(120000),
           });
         }
@@ -246,6 +350,34 @@ async function performTranscriptions() {
           });
           pending = true;
           continue;
+        }
+        if (response.status === 401 && hosted) {
+          whisperAccessCode = "";
+          pending = true;
+          await saveTranscriptionJob(db, {
+            ...job,
+            status: "queued",
+            needsAccess: true,
+            error:
+              "The transcription access code was not accepted. Re-enter it to resume; the provider was not called.",
+            nextAttempt: Date.now() + 30000,
+          });
+          continue;
+        }
+        if (response.status === 502 && hosted) {
+          const failure = await response
+            .clone()
+            .json()
+            .catch(() => null);
+          if (failure?.code === "INVALID_TRANSCRIPT") {
+            await saveTranscriptionJob(db, {
+              ...job,
+              status: "failed",
+              error:
+                "The hosted provider returned invalid text or timestamps. No draft was saved; ask the organizer before retrying.",
+            });
+            continue;
+          }
         }
         if (
           !response.ok ||

@@ -23,6 +23,13 @@ const fixture = createServer(async (req, res) => {
       res.end("<!doctype html><title>IndexedDB migration fixture</title>");
       return;
     }
+    if (url.pathname === "/api/transcriptions/health") {
+      json(200, {
+        service: "pamchenga-whisper",
+        models: ["turbo", "large-v3"],
+      });
+      return;
+    }
     if (url.pathname === "/api/transcriptions" && req.method === "POST") {
       const chunks = [];
       for await (const chunk of req) chunks.push(chunk);

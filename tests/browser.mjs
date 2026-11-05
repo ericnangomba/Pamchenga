@@ -27,7 +27,7 @@ try {
   await page.goto("http://localhost:4173");
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await page.evaluate(async () => {
-    const cache = await caches.open("pamchenga-v3");
+    const cache = await caches.open("pamchenga-v4");
     const paths = (await cache.keys()).map(
       (request) => new URL(request.url).pathname,
     );

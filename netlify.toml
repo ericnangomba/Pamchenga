@@ -4,3 +4,8 @@
 
 [build.environment]
   NODE_VERSION = "22.12.0"
+  VITE_WHISPER_PROVIDER = "groq"
+
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"
