@@ -11,6 +11,7 @@ import {
   updateStoryMetadata,
 } from "./storage";
 import { hashAudio, createManifest } from "./agents/provenance-agent";
+import { tagTranscriptOpenings } from "./agents/opening-agent";
 import type { Story, Region } from "./types";
 const app = document.querySelector<HTMLDivElement>("#app")!;
 const icons = {
@@ -139,19 +140,50 @@ function openCapture() {
   $("#record-orb").classList.remove("recording");
   $<HTMLDialogElement>("#capture-dialog").showModal();
 }
+async function probeDuration(blob: Blob): Promise<number> {
+  try {
+    const Ctor =
+      window.AudioContext ??
+      (window as unknown as { webkitAudioContext?: typeof AudioContext })
+        .webkitAudioContext;
+    if (!Ctor) return 0;
+    const ctx = new Ctor();
+    try {
+      const decoded = await ctx.decodeAudioData(await blob.arrayBuffer());
+      return Number.isFinite(decoded.duration) ? decoded.duration : 0;
+    } finally {
+      void ctx.close();
+    }
+  } catch {
+    return 0;
+  }
+}
 async function startRecording() {
   try {
     if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder)
       throw Error(
         "Recording requires a supported browser on HTTPS or localhost. You can import audio instead.",
       );
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        noiseSuppression: false,
-        echoCancellation: false,
-        autoGainControl: false,
-      },
-    });
+    stream = await Promise.race([
+      navigator.mediaDevices.getUserMedia({
+        audio: {
+          noiseSuppression: false,
+          echoCancellation: false,
+          autoGainControl: false,
+        },
+      }),
+      new Promise<never>((_, reject) =>
+        window.setTimeout(
+          () =>
+            reject(
+              Error(
+                "No answer from the microphone. Check the browser permission prompt, or use Import audio.",
+              ),
+            ),
+          15000,
+        ),
+      ),
+    ]);
     if (!$<HTMLDialogElement>("#capture-dialog").open) {
       stream.getTracks().forEach((t) => t.stop());
       return;
@@ -187,7 +219,10 @@ async function startRecording() {
     $("#capture-error").textContent = "";
   } catch (error) {
     $("#capture-error").textContent =
-      error instanceof Error ? error.message : "Microphone unavailable.";
+      error instanceof Error && error.message
+        ? error.message
+        : "Microphone unavailable. You can import audio instead.";
+    $("#record-status").textContent = "Take a moment. Gather your circle.";
     stream?.getTracks().forEach((t) => t.stop());
   }
 }
@@ -211,6 +246,8 @@ $<HTMLFormElement>("#capture-form").addEventListener("submit", async (e) => {
   save.disabled = true;
   save.textContent = "Preserving your story…";
   try {
+    if ((!Number.isFinite(duration) || duration <= 0) && pending)
+      duration = await probeDuration(pending);
     const f = new FormData($<HTMLFormElement>("#capture-form"));
     const story: Story = {
       id: crypto.randomUUID(),
@@ -267,12 +304,20 @@ $("#audio-file").addEventListener("change", async () => {
   const audio = new Audio();
   audio.preload = "metadata";
   audio.onloadedmetadata = () => {
-    duration = Number.isFinite(audio.duration) ? audio.duration : 0;
-    $("#record-time").textContent = clock(duration);
+    if (Number.isFinite(audio.duration) && audio.duration > 0) {
+      duration = audio.duration;
+      $("#record-time").textContent = clock(duration);
+    }
     URL.revokeObjectURL(url);
   };
   audio.onerror = () => URL.revokeObjectURL(url);
   audio.src = url;
+  void probeDuration(file).then((probed) => {
+    if (probed > 0 && (!Number.isFinite(duration) || duration <= 0)) {
+      duration = probed;
+      $("#record-time").textContent = clock(duration);
+    }
+  });
   $<HTMLInputElement>("#audio-file").value = "";
 });
 function download(blob: Blob, name: string) {
@@ -283,11 +328,15 @@ function download(blob: Blob, name: string) {
   link.click();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
+function ritualTagsHtml(tags: string[] | undefined) {
+  if (!tags?.length) return "";
+  return `<p class="muted small-text">Ritual openings tagged in this transcript, from text cues only:</p><div class="detail-tags ritual-tags-list">${tags.map((t) => `<span>${esc(t)}</span>`).join("")}</div>`;
+}
 function showStory(s: Story) {
   if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   playbackUrl = URL.createObjectURL(s.audio);
   $("#detail").innerHTML =
-    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Automatic transcription and wisdom extraction await a localized model connection.</p><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for sync →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p>`;
+    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Automatic transcription and wisdom extraction await a localized model connection.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for sync →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p>`;
   attachLearningEditor(s, download, async (updated) => {
     s = updated;
     stories = await getStories();
@@ -309,11 +358,14 @@ function showStory(s: Story) {
     );
   $("#save-notes").onclick = async () => {
     try {
+      const transcript = $<HTMLTextAreaElement>("#transcript").value;
       const updated = await updateStoryMetadata(s.id, {
-        transcript: $<HTMLTextAreaElement>("#transcript").value,
+        transcript,
+        ritualTags: tagTranscriptOpenings(transcript),
       });
       s = updated;
       stories = await getStories();
+      $("#ritual-tags").innerHTML = ritualTagsHtml(s.ritualTags);
       toast("Notes saved on this device.");
     } catch {
       toast("Could not save notes. Please try again.");
