@@ -1,5 +1,6 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
+import { readFile } from "node:fs/promises";
 const browser = await chromium.launch({
   executablePath: "/usr/bin/chromium",
   headless: true,
@@ -90,6 +91,121 @@ try {
     "Padangokhala! Iro nwanụ!",
   );
   await page.getByRole("button", { name: "Close", exact: true }).last().click();
+  // Prepare a real offline classroom resource, with a separate permission gate.
+  await page.locator(".story-card").click();
+  await page
+    .getByLabel("Learning audience", { exact: true })
+    .fill("Chichewa-speaking learners, ages 9–12");
+  await page
+    .getByLabel("Learning objective", { exact: true })
+    .fill("Retell a story about cooperation");
+  await page.getByLabel("Native proverb", { exact: true }).fill("Iro nwanụ!");
+  await page
+    .getByLabel("Meaning and cultural context", { exact: true })
+    .fill("Interpretation supplied by the facilitator.");
+  await page
+    .getByLabel("Discussion question", { exact: true })
+    .fill("How did the characters help one another?");
+  await page
+    .getByLabel("Learning activity", { exact: true })
+    .fill("Retell the story together.");
+  await page.getByLabel("Sessions delivered", { exact: true }).fill("2");
+  await page
+    .getByRole("button", { name: "Save learning card", exact: true })
+    .click();
+  await page
+    .locator("#lesson-status")
+    .filter({ hasText: "saved on this device" })
+    .waitFor();
+  await page
+    .getByRole("button", { name: "Export lesson handout", exact: true })
+    .click();
+  assert.match(await page.locator("#lesson-status").innerText(), /permission/);
+  await page.locator("[name=classroomPermission]").check();
+  await page
+    .getByRole("button", { name: "Export lesson handout", exact: true })
+    .click();
+  assert.match(
+    await page.locator("#lesson-status").innerText(),
+    /Save your changes/,
+  );
+  await page
+    .getByRole("button", { name: "Save learning card", exact: true })
+    .click();
+  await page
+    .locator("#lesson-status")
+    .filter({ hasText: "saved on this device" })
+    .waitFor();
+  await page
+    .getByLabel("Transcript or storyteller’s notes")
+    .fill("Padangokhala! Iro nwanụ! Community note.");
+  await page
+    .getByLabel("Learning objective", { exact: true })
+    .fill("Retell the story and explain cooperation");
+  await page.evaluate(() => {
+    document.querySelector("#save-notes").click();
+    document.querySelector("#lesson-form").requestSubmit();
+  });
+  await page.waitForFunction(
+    () =>
+      !document.querySelector("#lesson-form [type=submit]").disabled &&
+      document
+        .querySelector("#lesson-status")
+        .textContent.includes("saved on this device"),
+  );
+  await page.locator("#toast").filter({ hasText: "Notes saved" }).waitFor();
+  const lessonDownload = page.waitForEvent("download");
+  await page
+    .getByRole("button", { name: "Export lesson handout", exact: true })
+    .click();
+  const lessonText = await readFile(
+    await (await lessonDownload).path(),
+    "utf8",
+  );
+  assert.match(lessonText, /Iro nwanụ!/);
+  assert.match(lessonText, /Thoko/);
+  await page.getByRole("button", { name: "Close", exact: true }).last().click();
+  await page.reload();
+  await page.locator(".story-card").waitFor();
+  assert.equal(await page.locator("#lessons-count").innerText(), "1");
+  assert.equal(await page.locator("#sessions-count").innerText(), "2");
+  await page.locator(".story-card").click();
+  assert.equal(
+    await page.getByLabel("Native proverb", { exact: true }).inputValue(),
+    "Iro nwanụ!",
+  );
+  assert.equal(
+    await page.getByLabel("Transcript or storyteller’s notes").inputValue(),
+    "Padangokhala! Iro nwanụ! Community note.",
+  );
+  await page.getByRole("button", { name: "Close", exact: true }).last().click();
+  await page
+    .getByRole("button", { name: "Built with Codex", exact: false })
+    .click();
+  for (const name of ["Plan", "Build", "Review", "Document", "Skill"]) {
+    await page.getByRole("button", { name, exact: true }).click();
+    assert.ok(
+      (await page.locator("#artifact-content").innerText()).length > 100,
+    );
+  }
+  const handoffDownload = page.waitForEvent("download");
+  await page
+    .getByRole("button", {
+      name: "Export Codex engineering handoff",
+      exact: true,
+    })
+    .click();
+  const handoffText = await readFile(
+    await (await handoffDownload).path(),
+    "utf8",
+  );
+  assert.match(handoffText, /AGENTS.md/);
+  assert.match(handoffText, /npm test/);
+  assert.ok(!handoffText.includes("Padangokhala! Iro nwanụ!"));
+  assert.ok(!handoffText.includes("Thoko"));
+  await page
+    .getByRole("button", { name: "Close workflow", exact: true })
+    .click();
   await page.screenshot({ path: "/tmp/pamchenga-desktop.png", fullPage: true });
   await page.setViewportSize({ width: 390, height: 844 });
   assert.equal(
@@ -134,7 +250,7 @@ try {
   await page.getByRole("searchbox").fill("");
   assert.deepEqual(errors, []);
   console.log(
-    "PASS: recording, hash, local persistence, notes, export, durable retry queue, offline reload, mobile layout, audio import, filters, and search",
+    "PASS: recording, hash, local persistence, notes, export, durable retry queue, offline reload, mobile layout, audio import, filters, search, offline lessons, classroom consent, metrics, and Codex artifact/handoff export",
   );
 } finally {
   await browser.close();

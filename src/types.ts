@@ -12,6 +12,7 @@ export interface Story {
   audio: Blob;
   audioSha256: string;
   transcript: string;
+  learning?: LearningCard;
 }
 export interface Segment {
   start: number;
@@ -23,4 +24,15 @@ export interface SyncJob {
   attempts: number;
   nextAttempt: number;
   status: "queued" | "synced";
+}
+
+export interface LearningCard {
+  audience: string;
+  objective: string;
+  nativeProverb: string;
+  meaning: string;
+  discussionQuestion: string;
+  activity: string;
+  sessionsDelivered: number;
+  classroomPermission: boolean;
 }
