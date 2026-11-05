@@ -67,6 +67,10 @@ try {
     .fill("Padangokhala! Iro nwanụ!");
   await page.getByRole("button", { name: "Save notes", exact: true }).click();
   await page.locator("#toast").filter({ hasText: "Notes saved" }).waitFor();
+  const ritualTags = await page.locator("#ritual-tags").innerText();
+  assert.match(ritualTags, /Padangokhala!/);
+  assert.match(ritualTags, /Iro nwanụ!/);
+  console.log("Ritual tags rendered:", ritualTags.replace(/\n/g, " | "));
   const download = page.waitForEvent("download");
   await page
     .getByRole("button", { name: "Export passport", exact: true })
@@ -190,6 +194,7 @@ try {
     await page.getByLabel("Transcript or storyteller’s notes").inputValue(),
     "Padangokhala! Iro nwanụ! Community note.",
   );
+  assert.match(await page.locator("#ritual-tags").innerText(), /Padangokhala!/);
   await page.getByRole("button", { name: "Close", exact: true }).last().click();
   await page
     .getByRole("button", { name: "Built with Codex", exact: false })
@@ -259,6 +264,21 @@ try {
   await page.waitForFunction(
     () => document.querySelectorAll(".story-card").length === 2,
   );
+  const importedDuration = await page.evaluate(
+    () =>
+      new Promise((resolve) => {
+        const r = indexedDB.open("pamchenga", 1);
+        r.onsuccess = () => {
+          const g = r.result.transaction("stories").objectStore("stories").getAll();
+          g.onsuccess = () =>
+            resolve(g.result.find((x) => x.title === "Hadithi")?.duration);
+        };
+      }),
+  );
+  assert.ok(
+    importedDuration > 0.5,
+    `imported wav duration should be measured, got ${importedDuration}`,
+  );
   await page.getByRole("button", { name: "East Africa", exact: true }).click();
   assert.equal(await page.locator(".story-card").count(), 1);
   assert.match(await page.locator(".story-card").innerText(), /Hadithi/);
@@ -266,6 +286,30 @@ try {
   await page.getByRole("searchbox").fill("Padangokhala");
   assert.equal(await page.locator(".story-card").count(), 1);
   await page.getByRole("searchbox").fill("");
+  const deniedBrowser = await chromium.launch({
+    headless: true,
+    args: ["--no-sandbox"],
+  });
+  const denied = await deniedBrowser.newContext({
+    viewport: { width: 1440, height: 1080 },
+  });
+  const deniedPage = await denied.newPage();
+  await deniedPage.goto("http://localhost:4173");
+  await deniedPage.locator("#new-record").click();
+  await deniedPage
+    .getByRole("button", { name: "Start recording", exact: true })
+    .click();
+  await deniedPage.waitForFunction(
+    () => document.querySelector("#capture-error").textContent.length > 0,
+    undefined,
+    { timeout: 20000 },
+  );
+  console.log(
+    "Mic-denied error shown:",
+    await deniedPage.locator("#capture-error").innerText(),
+  );
+  await denied.close();
+  await deniedBrowser.close();
   assert.deepEqual(errors, []);
   console.log(
     "PASS: recording, hash, local persistence, notes, export, durable retry queue, offline reload, mobile layout, audio import, filters, search, offline lessons, classroom consent, metrics, and Codex artifact/handoff export",
