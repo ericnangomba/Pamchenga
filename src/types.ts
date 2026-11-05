@@ -12,6 +12,7 @@ export interface Story {
   audio: Blob;
   audioSha256: string;
   transcript: string;
+  ritualTags?: string[];
   learning?: LearningCard;
 }
 export interface Segment {
