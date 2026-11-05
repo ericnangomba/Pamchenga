@@ -80,7 +80,7 @@ export async function queueStory(id: string): Promise<void> {
 /** Merge editable metadata in one transaction so notes and lesson saves cannot erase each other. */
 export async function updateStoryMetadata(
   id: string,
-  changes: Partial<Pick<Story, "transcript" | "learning">>,
+  changes: Partial<Pick<Story, "transcript" | "ritualTags" | "learning">>,
 ): Promise<Story> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
