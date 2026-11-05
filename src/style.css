@@ -900,6 +900,9 @@ textarea:focus {
   gap: 7px;
   margin: 18px 0;
 }
+.ritual-tags-list {
+  margin: 4px 0 18px;
+}
 .detail-tags span {
   background: #e6eadb;
   padding: 6px 10px;
