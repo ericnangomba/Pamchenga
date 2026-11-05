@@ -1,0 +1,141 @@
+const CACHE = "pamchenga-v1";
+self.addEventListener("install", (event) => {
+  event.waitUntil(
+    caches
+      .open(CACHE)
+      .then((cache) =>
+        cache.addAll(["/", "/icon.svg", "/manifest.webmanifest"]),
+      ),
+  );
+  self.skipWaiting();
+});
+self.addEventListener("activate", (event) => {
+  event.waitUntil(
+    caches
+      .keys()
+      .then((keys) =>
+        Promise.all(
+          keys.filter((key) => key !== CACHE).map((key) => caches.delete(key)),
+        ),
+      )
+      .then(() => self.clients.claim()),
+  );
+});
+self.addEventListener("fetch", (event) => {
+  const url = new URL(event.request.url);
+  if (
+    event.request.method !== "GET" ||
+    url.origin !== self.location.origin ||
+    url.pathname.startsWith("/api/")
+  )
+    return;
+  event.respondWith(
+    fetch(event.request)
+      .then((response) => {
+        if (response.ok) {
+          const copy = response.clone();
+          event.waitUntil(
+            caches.open(CACHE).then((cache) => cache.put(event.request, copy)),
+          );
+        }
+        return response;
+      })
+      .catch(async () => {
+        const cached = await caches.match(event.request);
+        if (cached) return cached;
+        if (event.request.mode === "navigate")
+          return (await caches.match("/")) || Response.error();
+        return Response.error();
+      }),
+  );
+});
+function database() {
+  return new Promise((resolve, reject) => {
+    const r = indexedDB.open("pamchenga", 1);
+    r.onupgradeneeded = () => {
+      r.result.createObjectStore("stories", { keyPath: "id" });
+      r.result.createObjectStore("queue", { keyPath: "id" });
+    };
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+function read(db, store, key) {
+  return new Promise((resolve, reject) => {
+    const r =
+      key === undefined
+        ? db.transaction(store).objectStore(store).getAll()
+        : db.transaction(store).objectStore(store).get(key);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+function put(db, job) {
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("queue", "readwrite");
+    tx.objectStore("queue").put(job);
+    tx.oncomplete = resolve;
+    tx.onerror = () => reject(tx.error);
+  });
+}
+let running;
+function flush() {
+  if (running) return running;
+  running = performFlush().finally(() => {
+    running = null;
+  });
+  return running;
+}
+async function performFlush() {
+  const db = await database();
+  let failed = false;
+  try {
+    for (const job of await read(db, "queue")) {
+      if (job.status === "synced") continue;
+      if (job.nextAttempt > Date.now()) {
+        failed = true;
+        continue;
+      }
+      try {
+        const story = await read(db, "stories", job.id);
+        if (!story) throw Error("Missing local story");
+        const data = new FormData();
+        const { audio, ...metadata } = story;
+        data.append("audio", audio, "original-audio");
+        data.append("metadata", JSON.stringify(metadata));
+        const response = await fetch("/api/stories", {
+          method: "POST",
+          body: data,
+          headers: { "Idempotency-Key": job.id },
+        });
+        if (
+          !response.ok ||
+          !response.headers.get("content-type")?.includes("application/json")
+        )
+          throw Error("Sync endpoint unavailable");
+        const ack = await response.json();
+        if (ack.id !== job.id || ack.audioSha256 !== story.audioSha256)
+          throw Error("Invalid acknowledgement");
+        await put(db, { ...job, status: "synced" });
+      } catch {
+        failed = true;
+        const attempts = job.attempts + 1;
+        await put(db, {
+          ...job,
+          attempts,
+          nextAttempt:
+            Date.now() + Math.min(3600000, 1000 * 2 ** Math.min(attempts, 12)),
+        });
+      }
+    }
+  } finally {
+    db.close();
+  }
+  if (failed) throw Error("Stories remain queued");
+}
+self.addEventListener("sync", (event) => {
+  if (event.tag === "pamchenga-sync") event.waitUntil(flush());
+});
+self.addEventListener("message", (event) => {
+  if (event.data?.type === "SYNC") event.waitUntil(flush().catch(() => {}));
+});
