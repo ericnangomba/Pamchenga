@@ -1,7 +1,10 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { hashAudio, createManifest } from "../src/agents/provenance-agent";
-import { tagOpenings, tagTranscriptOpenings } from "../src/agents/opening-agent";
+import {
+  tagOpenings,
+  tagTranscriptOpenings,
+} from "../src/agents/opening-agent";
 import type { Story } from "../src/types";
 test("SHA-256 matches known bytes and preserves original audio", async () => {
   const audio = new Blob(["abc"]);
@@ -51,8 +54,7 @@ test("transcript tagging finds openings in pasted text, keeping native spelling"
   );
   assert.deepEqual(tags, ["Padangokhala!", "Tilitonse!"]);
   assert.deepEqual(tagTranscriptOpenings("An ordinary sentence."), []);
-  assert.deepEqual(
-    tagTranscriptOpenings("Iro nwanụ! A proverb follows."),
-    ["Iro nwanụ!"],
-  );
+  assert.deepEqual(tagTranscriptOpenings("Iro nwanụ! A proverb follows."), [
+    "Iro nwanụ!",
+  ]);
 });

@@ -2,3 +2,9 @@ node_modules/
 dist/
 test-results/
 playwright-report/
+.venv/
+__pycache__/
+*.pyc
+.whisper-data/
+.whisper-models/
+.env

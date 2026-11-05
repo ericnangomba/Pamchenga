@@ -1,0 +1,6 @@
+fastapi==0.141.1
+uvicorn==0.52.1
+python-multipart==0.0.32
+faster-whisper==1.2.1
+# FastAPI contract-test client (also useful for operator smoke checks).
+httpx==0.28.1

@@ -37,10 +37,10 @@ The browser integration check uses Playwright Chromium and fake microphone input
 See `AGENTS.md` and `.agents/skills/pamchenga-orchestrator/SKILL.md`.
 
 - `opening-agent`: timestamped transcript ritual tagging in the first 30 seconds. It does not perform acoustic recognition.
-- `folklore-agent`: typed contracts for localized transcription and structured wisdom extraction. No automatic transcription model is bundled.
+- `folklore-agent`: typed contracts for localized transcription and structured wisdom extraction. Whisper Large V3/Turbo transcription is available through the optional self-hosted Python backend; weights are not bundled.
 - `provenance-agent`: real browser SHA-256 over original bytes and unsigned JSON-LD origin metadata; typed interfaces for real signing and content-addressable storage.
 
-`audio-storage-mcp` and `c2pa-signer-mcp` were unavailable during implementation. Browser IndexedDB is the storage fallback. C2PA embedding, certificate validation, device signing, Whisper transcription, and IPFS/Arweave publication require configured integrations and are not represented as completed. A SHA-256 fingerprint alone is not a C2PA credential; JSON-LD passports explicitly state unsigned status.
+`audio-storage-mcp` and `c2pa-signer-mcp` were unavailable during implementation. Browser IndexedDB is the storage fallback. C2PA embedding, certificate validation, device signing and IPFS/Arweave publication require configured integrations. Whisper now has an implemented optional backend; actual inference requires downloaded model weights. A SHA-256 fingerprint alone is not a C2PA credential; JSON-LD passports explicitly state unsigned status.
 
 ## Optional sync service contract
 
@@ -59,3 +59,9 @@ The intended initial use case is teachers and community facilitators working wit
 Open a saved story and use **Prepare a learning card** to write an audience, objective, native proverb and meaning, discussion question and activity. Cards remain editable offline and persist in IndexedDB with their source story. Separate classroom permission is required before exporting a credited Markdown handout. Unsaved changes must be saved before export. Recording permission alone does not grant classroom use. The learning panel counts device-local lesson cards, languages with lessons and facilitator-reported sessions; it does not invent learner reach or outcomes.
 
 The app’s **Built with Codex** panel exposes the actual [plan](docs/PLAN.md), [architecture rules](AGENTS.md), [review evidence](docs/REVIEW.md), [impact documentation](docs/IMPACT.md) and reusable development skill. Export its engineering handoff to continue work with Codex. The handoff contains public repository context only, no private story or lesson data. This is evidence of Codex’s development workflow; no live Codex agent is embedded in the browser. Repository planning was used; special UI plan mode and parallel agents are not claimed.
+
+## Whisper Large V3 / Turbo transcription
+
+Open a saved story and find **Transcribe with OpenAI Whisper**. Select Turbo or Large V3, optionally choose a supported language hint and spelling cues, and grant permission to send the original audio to the configured server. The request is saved in IndexedDB before the service worker sends it. Uploads and polls retry durably. Generated drafts retain timestamps and stay separate from handwritten notes until reviewed; the app appends approved text without overwriting existing notes. Opening ritual cues use timestamped text matching, not independent acoustic detection.
+
+See [backend installation, model preparation, deployment and API details](server/README.md). The multilingual models cover 99+ languages with variable accuracy; not every African language has an explicit hint. A static Netlify ZIP alone cannot run model inference. The self-hosted backend requires installed weights and same-origin deployment/proxy configuration. No OpenAI API key is needed. Model downloads were blocked by the cloud network policy during implementation, so actual model inference is not claimed as verified.

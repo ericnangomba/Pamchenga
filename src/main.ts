@@ -1,4 +1,5 @@
 import "./style.css";
+import { attachWhisperEditor } from "./whisper-ui";
 import {
   mountLearningPanel,
   updateLearningMetrics,
@@ -336,9 +337,15 @@ function showStory(s: Story) {
   if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   playbackUrl = URL.createObjectURL(s.audio);
   $("#detail").innerHTML =
-    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Automatic transcription and wisdom extraction await a localized model connection.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for sync →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p>`;
+    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Your notes stay separate from the Whisper draft below. Wisdom extraction still needs a localized model.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for sync →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p>`;
   attachLearningEditor(s, download, async (updated) => {
     s = updated;
+    stories = await getStories();
+    render();
+  });
+  attachWhisperEditor(s, requestSync, async (updated) => {
+    s = updated;
+    $("#ritual-tags").innerHTML = ritualTagsHtml(updated.ritualTags);
     stories = await getStories();
     render();
   });
@@ -471,7 +478,7 @@ $("#install").onclick = async () => {
 };
 if ("serviceWorker" in navigator)
   navigator.serviceWorker
-    .register("/sw.js")
+    .register("/sw.js", { type: "module" })
     .catch(() => toast("Offline caching is unavailable in this browser."));
 void getStories()
   .then((data) => {

@@ -1,10 +1,14 @@
 import { chromium } from "@playwright/test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+const executablePath =
+  process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH ||
+  (existsSync("/usr/bin/chromium") ? "/usr/bin/chromium" : undefined);
 const browser = await chromium.launch({
-  executablePath: process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH,
+  executablePath,
   headless: true,
   args: [
     "--no-sandbox",
@@ -23,9 +27,9 @@ try {
   await page.goto("http://localhost:4173");
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
   await page.evaluate(async () => {
-    const cache = await caches.open("pamchenga-v2");
-    const paths = (await cache.keys()).map((request) =>
-      new URL(request.url).pathname,
+    const cache = await caches.open("pamchenga-v3");
+    const paths = (await cache.keys()).map(
+      (request) => new URL(request.url).pathname,
     );
     if (!paths.some((path) => path.endsWith(".js")))
       throw Error("Offline JavaScript was not precached");
@@ -84,7 +88,7 @@ try {
   const jobs = await page.evaluate(
     () =>
       new Promise((resolve, reject) => {
-        const r = indexedDB.open("pamchenga", 1);
+        const r = indexedDB.open("pamchenga", 2);
         r.onsuccess = () => {
           const q = r.result.transaction("queue").objectStore("queue").getAll();
           q.onsuccess = () => resolve(q.result);
@@ -267,9 +271,12 @@ try {
   const importedDuration = await page.evaluate(
     () =>
       new Promise((resolve) => {
-        const r = indexedDB.open("pamchenga", 1);
+        const r = indexedDB.open("pamchenga", 2);
         r.onsuccess = () => {
-          const g = r.result.transaction("stories").objectStore("stories").getAll();
+          const g = r.result
+            .transaction("stories")
+            .objectStore("stories")
+            .getAll();
           g.onsuccess = () =>
             resolve(g.result.find((x) => x.title === "Hadithi")?.duration);
         };
@@ -287,6 +294,7 @@ try {
   assert.equal(await page.locator(".story-card").count(), 1);
   await page.getByRole("searchbox").fill("");
   const deniedBrowser = await chromium.launch({
+    executablePath,
     headless: true,
     args: ["--no-sandbox"],
   });

@@ -1,12 +1,18 @@
-import type { Story, SyncJob } from "./types";
+import { tagTranscriptOpenings } from "./agents/opening-agent";
+import type { Story, SyncJob, TranscriptionJob, WhisperModel } from "./types";
 export function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
-    const req = indexedDB.open("pamchenga", 1);
+    const req = indexedDB.open("pamchenga", 2);
     req.onupgradeneeded = () => {
-      req.result.createObjectStore("stories", { keyPath: "id" });
-      req.result.createObjectStore("queue", { keyPath: "id" });
+      for (const name of ["stories", "queue", "transcriptions"]) {
+        if (!req.result.objectStoreNames.contains(name))
+          req.result.createObjectStore(name, { keyPath: "id" });
+      }
     };
-    req.onsuccess = () => resolve(req.result);
+    req.onsuccess = () => {
+      req.result.onversionchange = () => req.result.close();
+      resolve(req.result);
+    };
     req.onerror = () => reject(req.error);
   });
 }
@@ -80,7 +86,9 @@ export async function queueStory(id: string): Promise<void> {
 /** Merge editable metadata in one transaction so notes and lesson saves cannot erase each other. */
 export async function updateStoryMetadata(
   id: string,
-  changes: Partial<Pick<Story, "transcript" | "ritualTags" | "learning">>,
+  changes: Partial<
+    Pick<Story, "transcript" | "ritualTags" | "learning" | "transcription">
+  >,
 ): Promise<Story> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
@@ -107,6 +115,144 @@ export async function updateStoryMetadata(
     tx.onabort = () => {
       db.close();
       reject(tx.error ?? new Error("The original story is unavailable."));
+    };
+  });
+}
+
+export async function queueTranscription(
+  storyId: string,
+  model: WhisperModel,
+  language: string,
+  prompt: string,
+): Promise<TranscriptionJob> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(["stories", "transcriptions"], "readwrite");
+    const store = tx.objectStore("transcriptions");
+    let job: TranscriptionJob;
+    const request = tx.objectStore("stories").get(storyId);
+    request.onsuccess = () => {
+      if (!request.result) {
+        tx.abort();
+        return;
+      }
+      if (request.result.audio.size > 100 * 1024 * 1024) {
+        tx.abort();
+        return;
+      }
+      const jobs = store.getAll();
+      jobs.onsuccess = () => {
+        const pending = (jobs.result as TranscriptionJob[]).find(
+          (j) =>
+            j.storyId === storyId &&
+            (j.status === "queued" || j.status === "running"),
+        );
+        job = pending ?? {
+          id: crypto.randomUUID(),
+          storyId,
+          model,
+          language,
+          prompt,
+          status: "queued",
+          attempts: 0,
+          nextAttempt: Date.now(),
+          accepted: false,
+          createdAt: new Date().toISOString(),
+        };
+        if (!pending) store.put(job);
+      };
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(job);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(
+        tx.error ??
+          Error("Save audio first. Whisper uploads must be under 100 MiB."),
+      );
+    };
+  });
+}
+export async function getTranscriptionJobs(
+  storyId: string,
+): Promise<TranscriptionJob[]> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("transcriptions");
+    const request = tx.objectStore("transcriptions").getAll();
+    request.onsuccess = () =>
+      resolve(
+        (request.result as TranscriptionJob[])
+          .filter((j) => j.storyId === storyId)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
+      );
+    request.onerror = () => reject(request.error);
+    tx.oncomplete = () => db.close();
+  });
+}
+
+/** Apply a reviewed draft atomically; concurrent edits or a newer draft must never be overwritten. */
+export async function appendReviewedDraft(
+  id: string,
+  jobId: string,
+  expectedNotes: string,
+): Promise<Story> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction("stories", "readwrite");
+    const store = tx.objectStore("stories");
+    const request = store.get(id);
+    let updated: Story;
+    let failure = "Could not save the reviewed draft.";
+    request.onsuccess = () => {
+      const story = request.result as Story | undefined;
+      const result = story?.transcription;
+      if (
+        !story ||
+        !result ||
+        result.id !== jobId ||
+        result.reviewedAt ||
+        !result.text.trim()
+      ) {
+        failure =
+          "A new or already-used draft is available. Review the current draft first.";
+        tx.abort();
+        return;
+      }
+      if (story.transcript !== expectedNotes) {
+        failure =
+          "Save your existing notes before appending the Whisper draft. Concurrent edits were preserved.";
+        tx.abort();
+        return;
+      }
+      const transcript = [story.transcript, result.text]
+        .filter(Boolean)
+        .join("\n\n");
+      updated = {
+        ...story,
+        transcript,
+        ritualTags: tagTranscriptOpenings(transcript),
+        transcription: { ...result, reviewedAt: new Date().toISOString() },
+      };
+      store.put(updated);
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve(updated);
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(Error(failure));
     };
   });
 }
