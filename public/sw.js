@@ -1,5 +1,5 @@
 import { validateWhisperResponse } from "/whisper-result.js";
-const CACHE = "pamchenga-v4";
+const CACHE = "pamchenga-v5";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
