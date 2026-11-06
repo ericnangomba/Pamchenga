@@ -10,6 +10,7 @@ import {
   saveStory,
   queueStory,
   updateStoryMetadata,
+  deleteStory,
 } from "./storage";
 import { hashAudio, createManifest } from "./agents/provenance-agent";
 import { tagTranscriptOpenings } from "./agents/opening-agent";
@@ -337,7 +338,7 @@ function showStory(s: Story) {
   if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   playbackUrl = URL.createObjectURL(s.audio);
   $("#detail").innerHTML =
-    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Your notes stay separate from the Whisper draft below. Wisdom extraction still needs a localized model.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for sync →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p>`;
+    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Your notes stay separate from the Whisper draft below. Wisdom extraction still needs a localized model.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for sync →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p><button class="text-button danger" id="delete-story">Delete story from this device</button>`;
   attachLearningEditor(s, download, async (updated) => {
     s = updated;
     stories = await getStories();
@@ -376,6 +377,35 @@ function showStory(s: Story) {
       toast("Notes saved on this device.");
     } catch {
       toast("Could not save notes. Please try again.");
+    }
+  };
+  const deleteButton = $<HTMLButtonElement>("#delete-story");
+  let deleteArmed = false;
+  let disarmTimer = 0;
+  deleteButton.onclick = async () => {
+    if (!deleteArmed) {
+      deleteArmed = true;
+      deleteButton.classList.add("confirm");
+      deleteButton.textContent =
+        "Tap again to permanently delete this story and its drafts";
+      disarmTimer = window.setTimeout(() => {
+        deleteArmed = false;
+        deleteButton.classList.remove("confirm");
+        deleteButton.textContent = "Delete story from this device";
+      }, 6000);
+      return;
+    }
+    window.clearTimeout(disarmTimer);
+    deleteButton.disabled = true;
+    try {
+      await deleteStory(s.id);
+      stories = await getStories();
+      $<HTMLDialogElement>("#detail-dialog").close();
+      render();
+      toast("Story deleted from this device.");
+    } catch {
+      deleteButton.disabled = false;
+      toast("Could not delete the story. Please try again.");
     }
   };
   $("#sync-story").onclick = async () => {
