@@ -36,6 +36,37 @@ export async function saveStory(story: Story): Promise<void> {
     };
   });
 }
+/** Delete a story together with any sync or transcription jobs that reference it, in one transaction. */
+export async function deleteStory(id: string): Promise<void> {
+  const db = await openDatabase();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(
+      ["stories", "queue", "transcriptions"],
+      "readwrite",
+    );
+    tx.objectStore("stories").delete(id);
+    tx.objectStore("queue").delete(id);
+    const jobs = tx.objectStore("transcriptions").getAll();
+    jobs.onsuccess = () => {
+      for (const job of jobs.result as TranscriptionJob[]) {
+        if (job.storyId === id) tx.objectStore("transcriptions").delete(job.id);
+      }
+    };
+    tx.oncomplete = () => {
+      db.close();
+      resolve();
+    };
+    tx.onerror = () => {
+      db.close();
+      reject(tx.error);
+    };
+    tx.onabort = () => {
+      db.close();
+      reject(tx.error);
+    };
+  });
+}
+
 export async function getStories(): Promise<Story[]> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
