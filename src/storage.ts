@@ -1,3 +1,4 @@
+import { requirePermission } from "./consent";
 import { hostedWhisper, maxTranscriptionBytes } from "./transcription-config";
 import { tagTranscriptOpenings } from "./agents/opening-agent";
 import type { Story, SyncJob, TranscriptionJob, WhisperModel } from "./types";
@@ -92,6 +93,7 @@ export async function queueStory(id: string): Promise<void> {
         tx.abort();
         return;
       }
+      try { requirePermission(stories.result as Story, "backup"); } catch { tx.abort(); return; }
       const job: SyncJob = {
         id,
         attempts: 0,
@@ -119,7 +121,7 @@ export async function queueStory(id: string): Promise<void> {
 export async function updateStoryMetadata(
   id: string,
   changes: Partial<
-    Pick<Story, "transcript" | "ritualTags" | "learning" | "transcription">
+    Pick<Story, "transcript" | "ritualTags" | "learning" | "transcription" | "consent" | "consentHistory">
   >,
 ): Promise<Story> {
   const db = await openDatabase();
