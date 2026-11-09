@@ -55,7 +55,12 @@ try {
     .getByLabel("Location", { exact: true })
     .fill("Kawale, Lilongwe, Malawi");
   await page.getByLabel("Language", { exact: true }).fill("Chichewa");
-  await page.getByRole("checkbox").check();
+  await page.getByLabel("Person giving consent").fill("Storyteller");
+  await page.getByRole("checkbox", { name: /Permission to record this story/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to store this story locally/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to share this story/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to back up this story/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to use this story in classroom teaching/ }).check();
   await page.getByRole("button", { name: "Save story on this device" }).click();
   await page.locator(".story-card").waitFor();
   console.log("Story collection loaded");
@@ -263,7 +268,12 @@ try {
   await page.getByLabel("Location", { exact: true }).fill("Mombasa, Kenya");
   await page.getByLabel("Region", { exact: true }).selectOption("East Africa");
   await page.getByLabel("Language", { exact: true }).fill("Kiswahili");
-  await page.getByRole("checkbox").check();
+  await page.getByLabel("Person giving consent").fill("Storyteller");
+  await page.getByRole("checkbox", { name: /Permission to record this story/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to store this story locally/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to share this story/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to back up this story/ }).check();
+  await page.getByRole("checkbox", { name: /Permission to use this story in classroom teaching/ }).check();
   await page.getByRole("button", { name: "Save story on this device" }).click();
   await page.waitForFunction(
     () => document.querySelectorAll(".story-card").length === 2,

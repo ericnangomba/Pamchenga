@@ -48,6 +48,7 @@ test("classroom export requires distinct permission and preserves attribution an
   assert.throws(() => exportLesson({ ...story, learning: card }), /permission/);
   const output = exportLesson({
     ...story,
+    consent: { version: 1, giver: "Thoko", role: "storyteller", recordedAt: "2026-11-09T00:00:00Z", permissions: { record: true, store: true, share: false, backup: false, teach: true, commercial: false } },
     learning: { ...card, classroomPermission: true },
   });
   for (const text of [
