@@ -1,4 +1,5 @@
 import type { Story } from "../types";
+import { consentUses, permitted } from "../consent";
 export async function hashAudio(audio: Blob): Promise<string> {
   const digest = await crypto.subtle.digest(
     "SHA-256",
@@ -23,6 +24,12 @@ export function createManifest(story: Story) {
     license: story.license,
     dateCreated: story.createdAt,
     "pam:region": story.region,
+    "pam:consentVersion": story.consent?.version ?? null,
+    "pam:consentRecordedAt": story.consent?.recordedAt ?? null,
+    "pam:consentGiverRole": story.consent?.role ?? null,
+    "pam:permissions": Object.fromEntries(consentUses.map(use => [use, permitted(story, use)])),
+    "pam:consentEvidenceStatus": "self-reported-unverified",
+    "pam:communityRestrictions": story.consent?.notes ?? null,
     "pam:audioSha256": story.audioSha256,
     "pam:provenanceStatus": "unsigned",
     "pam:deviceSignature": null,
