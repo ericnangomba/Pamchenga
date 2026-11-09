@@ -85,7 +85,7 @@ try {
     .getByRole("button", { name: "Export passport", exact: true })
     .click();
   assert.match((await download).suggestedFilename(), /\.jsonld$/);
-  await page.getByRole("button", { name: "Queue for sync" }).click();
+  await page.getByRole("button", { name: "Queue for backup" }).click();
   await page.waitForTimeout(300);
   console.log("Queue result:", await page.locator("#toast").textContent());
   await page.locator("#toast").filter({ hasText: "Queued locally" }).waitFor();
