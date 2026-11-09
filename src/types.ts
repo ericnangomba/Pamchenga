@@ -1,4 +1,13 @@
 export type Region = "Southern Africa" | "East Africa" | "West Africa";
+export type ConsentUse = "record" | "store" | "share" | "backup" | "teach" | "commercial";
+export interface ConsentRecord {
+  version: 1;
+  giver: string;
+  role: "storyteller" | "authorized-representative";
+  recordedAt: string;
+  permissions: Record<ConsentUse, boolean>;
+  notes?: string;
+}
 export interface Story {
   id: string;
   title: string;
@@ -13,6 +22,8 @@ export interface Story {
   audioSha256: string;
   transcript: string;
   ritualTags?: string[];
+  consent?: ConsentRecord;
+  consentHistory?: ConsentRecord[];
   learning?: LearningCard;
   transcription?: TranscriptionResult;
 }
