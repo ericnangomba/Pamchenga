@@ -1,4 +1,5 @@
 import type { LearningCard, Story } from "../types";
+import { requirePermission } from "../consent";
 
 export function learningMetrics(stories: Story[]) {
   const prepared = stories.filter((s) => s.learning);
@@ -39,6 +40,7 @@ export function exportLesson(story: Story): string {
   const card = story.learning;
   if (!card) throw Error("Save a learning card first.");
   validateLearningCard(card);
+  requirePermission(story, "teach");
   if (!card.classroomPermission)
     throw Error(
       "Record storyteller permission for classroom use before exporting.",
