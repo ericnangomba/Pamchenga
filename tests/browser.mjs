@@ -1,3 +1,4 @@
+import { unzipSync, strFromU8 } from "fflate";
 import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
@@ -115,6 +116,15 @@ try {
     .fill("Kawale, Lilongwe, Malawi");
   await page.getByLabel("Language", { exact: true }).fill("Chichewa");
   await captureForm.getByLabel("Person giving consent").fill("Storyteller");
+  await captureForm
+    .getByLabel("Attribution wording", { exact: true })
+    .fill("Thoko and the Kawale storytelling circle · Iro nwanụ!");
+  await captureForm
+    .getByLabel("Benefit conditions", { exact: true })
+    .fill("Return a copy; community review before publication.");
+  await captureForm
+    .getByLabel("Restrictions or community conditions", { exact: true })
+    .fill("Keep the whole chant.");
   await captureForm
     .getByRole("checkbox", { name: /Permission to record this story/ })
     .check();
@@ -261,6 +271,11 @@ try {
   );
   assert.match(lessonText, /Iro nwanụ!/);
   assert.match(lessonText, /Thoko/);
+  assert.match(
+    lessonText,
+    /Credit: Thoko and the Kawale storytelling circle · Iro nwanụ!/,
+  );
+  assert.match(lessonText, /community review before publication/);
   await page.getByRole("button", { name: "Close", exact: true }).last().click();
   await page.reload();
   await page.locator(".story-card").waitFor();
@@ -358,6 +373,35 @@ try {
       name: /Permission to use this story in classroom teaching/,
     })
     .check();
+  await captureForm
+    .getByLabel("Attribution wording", { exact: true })
+    .fill("Amina and the Mombasa circle");
+  await captureForm
+    .getByLabel("Benefit conditions", { exact: true })
+    .fill("Return a copy before publication.");
+  await captureForm
+    .getByLabel("Community license", { exact: true })
+    .selectOption("CC BY-NC-SA 4.0");
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to share this story/ })
+    .uncheck();
+  await expect(captureForm.locator("[data-consent-notices]")).toContainText(
+    "irrevocable",
+  );
+  await expect(captureForm.locator("[data-consent-notices]")).toContainText(
+    "denying sharing",
+  );
+  await captureForm
+    .getByRole("button", { name: "Save story on this device" })
+    .click();
+  await expect(captureForm.locator("#capture-error")).toHaveText(
+    /Confirm rights-holder authorization/,
+  );
+  await captureForm
+    .getByRole("checkbox", {
+      name: /I confirm I am authorized by the rights holder/,
+    })
+    .check();
   await page.getByRole("button", { name: "Save story on this device" }).click();
   await page.waitForFunction(
     () => document.querySelectorAll(".story-card").length === 2,
@@ -387,6 +431,197 @@ try {
   await page.getByRole("searchbox").fill("Padangokhala");
   assert.equal(await page.locator(".story-card").count(), 1);
   await page.getByRole("searchbox").fill("");
+  // These protection checks continue in the same offline context.
+  await page.locator(".story-card").filter({ hasText: "Hadithi" }).click();
+  const detail = page.locator("#detail-dialog");
+  let consentEditor = detail.locator("#consent-update-form");
+  await expect(detail.locator("#consent-summary")).toContainText(
+    "Amina and the Mombasa circle",
+  );
+  await expect(
+    consentEditor.getByLabel("Benefit conditions", { exact: true }),
+  ).toHaveValue("Return a copy before publication.");
+  await detail
+    .getByRole("button", { name: "Export audio", exact: true })
+    .click();
+  await expect(page.locator("#toast")).toHaveText(
+    /permission for share is not recorded/,
+  );
+  const ownCopyForm = detail.locator("#own-copy-form");
+  await ownCopyForm
+    .getByRole("checkbox", {
+      name: /I am returning this copy to the storyteller/,
+    })
+    .check();
+  const ownCopyDownload = page.waitForEvent("download");
+  await ownCopyForm
+    .getByRole("button", {
+      name: "Give the storyteller their copy",
+      exact: true,
+    })
+    .click();
+  const ownCopy = await ownCopyDownload;
+  assert.match(ownCopy.suggestedFilename(), /-storyteller-copy\.zip$/);
+  const ownFiles = unzipSync(
+    new Uint8Array(await readFile(await ownCopy.path())),
+  );
+  const passportName = Object.keys(ownFiles).find((name) =>
+    name.endsWith(".jsonld"),
+  );
+  const ownPassport = JSON.parse(strFromU8(ownFiles[passportName]));
+  assert.deepEqual(Buffer.from(ownFiles[`${ownPassport.identifier}.wav`]), wav);
+  assert.equal(ownPassport.license, "CC BY-NC-SA 4.0");
+  assert.equal(ownPassport["pam:permissions"].share, false);
+  assert.equal(
+    ownPassport["pam:attributionWording"],
+    "Amina and the Mombasa circle",
+  );
+  assert.equal(
+    ownPassport["pam:benefitConditions"],
+    "Return a copy before publication.",
+  );
+  assert.equal(ownPassport["pam:provenanceStatus"], "unsigned");
+  assert.equal(
+    ownPassport["pam:consentEvidenceStatus"],
+    "self-reported-unverified",
+  );
+  assert.equal(ownPassport["pam:ownCopyExportRequests"].length, 1);
+  await expect(ownCopyForm.locator("#own-copy-status")).toContainText(
+    "not proof of delivery",
+  );
+
+  await consentEditor
+    .getByRole("checkbox", {
+      name: /Permission to use this story commercially/,
+    })
+    .check();
+  await expect(consentEditor.locator("[data-consent-notices]")).toContainText(
+    "excludes commercial use",
+  );
+  await consentEditor
+    .getByRole("checkbox", {
+      name: /I confirm I am authorized by the rights holder/,
+    })
+    .check();
+  await consentEditor
+    .getByRole("button", { name: "Save consent record", exact: true })
+    .click();
+  await expect(consentEditor.locator("#consent-update-status")).toContainText(
+    "Commercial use needs review",
+  );
+  await expect(detail.locator("#consent-summary")).toContainText(
+    "Commercial use is not permitted",
+  );
+  await consentEditor
+    .getByLabel("Who agreed to commercial use", { exact: true })
+    .fill("Amina and the publisher");
+  await consentEditor
+    .getByRole("button", { name: "Save consent record", exact: true })
+    .click();
+  await expect(consentEditor.locator("#consent-update-status")).toHaveText(
+    /Complete the commercial agreement/,
+  );
+  await consentEditor
+    .getByLabel("Agreement date", { exact: true })
+    .fill("2026-11-10");
+  await consentEditor
+    .getByLabel("Agreed commercial terms", { exact: true })
+    .fill("Agreed fee and review before commercial publication.");
+  await consentEditor
+    .getByRole("button", { name: "Save consent record", exact: true })
+    .click();
+  await expect(detail.locator("#consent-summary")).toContainText(
+    "agreement and permission recorded as an unverified attestation",
+  );
+  await expect(detail.locator("#consent-summary")).toContainText(
+    "Amina and the publisher",
+  );
+  await consentEditor
+    .getByRole("checkbox", { name: /Permission to back up this story/ })
+    .uncheck();
+  await expect(consentEditor.locator("[data-withdrawal-notice]")).toContainText(
+    "cannot be recalled",
+  );
+  await expect(consentEditor.locator("[data-withdrawal-notice]")).toContainText(
+    "editable device data, not proof",
+  );
+  await consentEditor
+    .getByRole("button", { name: "Save consent record", exact: true })
+    .click();
+  await expect(consentEditor.locator("#consent-update-status")).toContainText(
+    "cannot be recalled",
+  );
+  await detail.locator("#close-detail").click();
+  await page.reload();
+  await page.locator(".story-card").filter({ hasText: "Hadithi" }).click();
+  consentEditor = detail.locator("#consent-update-form");
+  await expect(
+    consentEditor.getByRole("checkbox", {
+      name: /Permission to back up this story/,
+    }),
+  ).not.toBeChecked();
+  await expect(
+    consentEditor.getByLabel("Agreed commercial terms", { exact: true }),
+  ).toHaveValue("Agreed fee and review before commercial publication.");
+  await expect(
+    consentEditor.getByLabel("Attribution wording", { exact: true }),
+  ).toHaveValue("Amina and the Mombasa circle");
+  await expect(detail.locator("#consent-summary")).toContainText(
+    "download requests recorded on this device: 1",
+  );
+  await detail.locator("#close-detail").click();
+
+  // Seed the prior on-device consent shape and confirm migration never silently
+  // carries a bare commercial checkbox forward as an effective permission.
+  await page.evaluate(async () => {
+    const db = await new Promise((resolve, reject) => {
+      const request = indexedDB.open("pamchenga", 2);
+      request.onsuccess = () => resolve(request.result);
+      request.onerror = () => reject(request.error);
+    });
+    await new Promise((resolve, reject) => {
+      const tx = db.transaction("stories", "readwrite");
+      const store = tx.objectStore("stories");
+      const request = store.getAll();
+      request.onsuccess = () => {
+        const story = request.result.find((s) => s.title === "Hadithi");
+        story.consent = {
+          version: 1,
+          giver: "Amina",
+          role: "storyteller",
+          recordedAt: "2026-11-09T00:00:00Z",
+          permissions: {
+            record: true,
+            store: true,
+            share: false,
+            backup: false,
+            teach: true,
+            commercial: true,
+          },
+        };
+        store.put(story);
+      };
+      tx.oncomplete = resolve;
+      tx.onerror = () => reject(tx.error);
+    });
+    db.close();
+  });
+  await page.reload();
+  await page.locator(".story-card").filter({ hasText: "Hadithi" }).click();
+  await expect(detail.locator("#consent-summary")).toContainText(
+    "Commercial use needs review",
+  );
+  await expect(
+    detail
+      .locator("#consent-update-form")
+      .getByRole("checkbox", {
+        name: /Permission to use this story commercially/,
+      }),
+  ).toBeChecked();
+  await detail.locator("#close-detail").click();
+  console.log(
+    "PASS: own-copy ZIP bytes/passport without sharing; attribution/benefits; agreement and license warnings; withdrawal and v1 review, offline persistence",
+  );
   const deniedBrowser = await chromium.launch({
     executablePath,
     headless: true,

@@ -1,5 +1,20 @@
 import "./style.css";
-import { consentFields, readConsent, requirePermission } from "./consent";
+import {
+  consentFields,
+  consentSummaryHtml,
+  commercialNeedsReview,
+  readConsent,
+  requirePermission,
+  withdrawnPermissions,
+  withdrawalNotice,
+} from "./consent";
+import { attachConsentNotices } from "./consent-ui";
+import {
+  originalAudioFilename,
+  sharedAudio,
+  sharedPassport,
+  storytellerCopy,
+} from "./story-exports";
 import { attachWhisperEditor } from "./whisper-ui";
 import {
   mountLearningPanel,
@@ -12,8 +27,10 @@ import {
   queueStory,
   updateStoryMetadata,
   deleteStory,
+  updateConsentRecord,
+  recordOwnCopyExport,
 } from "./storage";
-import { hashAudio, createManifest } from "./agents/provenance-agent";
+import { hashAudio } from "./agents/provenance-agent";
 import { tagTranscriptOpenings } from "./agents/opening-agent";
 import type { Story, Region } from "./types";
 const app = document.querySelector<HTMLDivElement>("#app")!;
@@ -72,6 +89,12 @@ app.innerHTML = `<aside class="sidebar"><a class="brand" href="/" aria-label="Pa
   )}</nav><div class="sidebar-note"><div class="little-circle">✳</div><h3>Every voice belongs.</h3><p>A story shared is a thread that connects generations.</p><span>ROOTED IN UBUNTU</span></div><div class="profile"><div class="avatar">Y</div><div>Your sand circle<small>Personal collection · This device</small></div><span>⌄</span></div></aside><div class="workspace"><header><div class="breadcrumb">Your gathering place <span>/</span> <strong id="crumb">My circle</strong></div><div class="header-right"><span id="connection" class="status"><i></i> Online · local-first</span><button id="install" class="quiet" hidden>Install app →</button><div class="avatar small">Y</div></div></header><main><section class="page-heading"><div><div class="eyebrow">A PLACE FOR OUR STORIES</div><h1 id="page-title">Welcome to your circle<span>.</span></h1><p>Gather the voices of today. Keep the wisdom for tomorrow.</p></div><button class="button primary" id="new-record"><span>＋</span> Record a story</button></section><section class="hero"><div class="hero-copy"><div class="hero-label"><span></span> OUR STORIES. OUR ROOTS. OUR FUTURE.</div><h2>Before there were books,<br>there was a circle.</h2><p>From the first “Padangokhala!” to the last lesson,<br>preserve every voice, song, and moment in between.</p><button class="button sand" id="hero-record">● &nbsp; Start your first story <span>→</span></button><div class="hero-foot">◌ &nbsp; Made to gather stories, even offline.</div></div><div class="circle-art" aria-hidden="true"><div class="orbit o1"></div><div class="orbit o2"></div><div class="orbit o3"></div><div class="orbit o4"></div><div class="orbit o5"></div><div class="sun"></div><div class="flame f1"></div><div class="flame f2"></div><span class="person p1"></span><span class="person p2"></span><span class="person p3"></span><span class="person p4"></span><span class="person p5"></span><span class="person p6"></span><span class="art-caption">PAMCHENGA · TOGETHER IN THE SAND</span></div></section><section class="stats"><div><span class="stat-icon">▤</span><div><strong id="story-total">0</strong><span>Stories preserved</span></div><small>Our living archive</small></div><div><span class="stat-icon">◷</span><div><strong id="minutes-total">0 min</strong><span>Voices captured</span></div><small>Every moment matters</small></div><div><span class="stat-icon">◎</span><div><strong id="language-total">0</strong><span>Languages celebrated</span></div><small>In their own words</small></div></section><section id="collection"><div class="collection-heading"><div><h2 id="collection-title">Around the circle</h2><p id="collection-subtitle">Your stories, safe and close to home.</p></div><label class="search"><span>⌕</span><input id="search" type="search" placeholder="Find a story…" aria-label="Find a story"></label></div><div class="filter-row"><div class="tabs">${["All stories", "Southern Africa", "East Africa", "West Africa"].map((s, i) => `<button data-filter="${s}" class="tab ${i === 0 ? "selected" : ""}">${s}</button>`).join("")}</div><button id="import" class="quiet">↑ &nbsp; Import audio</button><input type="file" id="audio-file" accept="audio/*" hidden></div><div id="story-grid" class="story-grid"></div></section><section class="values"><div><span>⌁</span><div><h3>Keep the whole story</h3><p>The opening chants. The laughter. The songs.</p></div></div><div><span>▧</span><div><h3>Yours, wherever you are</h3><p>Saved on your device. Ready without internet.</p></div></div><div><span>◇</span><div><h3>A traceable beginning</h3><p>Original audio fingerprinted at capture.</p></div></div></section><footer><span>Pamchenga <b>·</b> A living memory, carried together.</span><span>Built on community. Rooted in Africa. <span class="footer-mark">✳</span></span></footer></main></div><div id="toast" role="status"></div><dialog id="capture-dialog"><form id="capture-form"><div class="dialog-top"><span class="eyebrow">ADD TO THE CIRCLE</span><button type="button" class="close" data-close="capture-dialog" aria-label="Close">×</button></div><h2>Every story starts with a voice.</h2><p class="muted">Record with the storyteller’s permission. Rituals and ambient sounds are preserved.</p><div class="recorder"><div class="record-orb" id="record-orb">●</div><strong id="record-time">00:00</strong><span id="record-status">Take a moment. Gather your circle.</span><button type="button" id="toggle-record" class="button primary">Start recording</button></div><label>Story title<input name="title" required maxlength="160" placeholder="Give this memory a name"></label><div class="form-row"><label>Storyteller<input name="storyteller" required maxlength="120" placeholder="Who carries this story?"></label><label>Location<input name="location" required maxlength="160" placeholder="Village, city, country"></label></div><div class="form-row"><label>Region<select aria-label="Region" name="region"><option>Southern Africa</option><option>East Africa</option><option>West Africa</option></select></label><label>Language<input aria-label="Language" name="language" required maxlength="80" placeholder="e.g. Chichewa" list="languages"><datalist id="languages"><option>Chichewa</option><option>isiZulu</option><option>isiXhosa</option><option>Shona</option><option>Kiswahili</option><option>Hausa</option><option>Yoruba</option><option>Igbo</option><option>Wolof</option></datalist></label></div><label>Community license<select aria-label="Community license" name="license"><option>Community Tribal Copyright</option><option>CC BY-NC-SA 4.0</option></select></label>${consentFields()}<p id="capture-error" class="error" role="alert"></p><button id="save" class="button primary wide" type="submit" disabled>Save story on this device</button></form></dialog><dialog id="detail-dialog"><div id="detail"></div></dialog>`;
 const $ = <T extends HTMLElement = HTMLElement>(selector: string) =>
   document.querySelector<T>(selector)!;
+attachConsentNotices(
+  $<HTMLFormElement>("#capture-form"),
+  () =>
+    $<HTMLSelectElement>("#capture-form [name=license]")
+      .value as Story["license"],
+);
 mountLearningPanel(download);
 function render() {
   updateLearningMetrics(stories);
@@ -265,7 +288,7 @@ $<HTMLFormElement>("#capture-form").addEventListener("submit", async (e) => {
       audio: pending,
       audioSha256: await (pendingHash ?? hashAudio(pending)),
       transcript: "",
-      consent: readConsent(f),
+      consent: readConsent(f, String(f.get("license")) as Story["license"]),
     };
     if (
       !story.title ||
@@ -340,7 +363,7 @@ function showStory(s: Story) {
   if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   playbackUrl = URL.createObjectURL(s.audio);
   $("#detail").innerHTML =
-    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Your notes stay separate from the Whisper draft below. Wisdom extraction still needs a localized model.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><button class="text-button" id="sync-story">Queue for backup →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p><section class="consent-editor"><h3>Storyteller consent</h3><p class="muted small-text">Legacy stories have no recorded authorization. Preserve the story locally, and confirm each permitted use before sharing, backup or teaching. Consent updates are recorded on this device.</p><form id="consent-update-form">${consentFields(s.consent)}<button class="button secondary" type="submit">Save consent record</button><p id="consent-update-status" role="status"></p></form></section><button class="text-button danger" id="delete-story">Delete story from this device</button>`;
+    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Your notes stay separate from the Whisper draft below. Wisdom extraction still needs a localized model.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><form id="own-copy-form"><p class="muted small-text">Return the unchanged original audio and unsigned passport together. This does not authorize third-party sharing.</p><label class="consent"><input type="checkbox" name="returnToStoryteller" required> I am returning this copy to the storyteller or their claimed authorized representative, not sharing it with others.</label><button class="button secondary" type="submit">Give the storyteller their copy</button><p id="own-copy-status" role="status" class="small-text"></p></form><button class="text-button" id="sync-story">Queue for backup →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p><section class="consent-editor"><h3>Storyteller consent</h3><p class="muted small-text">Legacy stories have no recorded authorization. Preserve the story locally, and confirm each permitted use before sharing, backup or teaching. Consent updates are recorded on this device.</p><div id="consent-summary">${consentSummaryHtml(s)}</div><form id="consent-update-form">${consentFields(s.consent)}<button class="button secondary" type="submit">Save consent record</button><p id="consent-update-status" role="status"></p></form></section><button class="text-button danger" id="delete-story">Delete story from this device</button>`;
   attachLearningEditor(s, download, async (updated) => {
     s = updated;
     stories = await getStories();
@@ -352,33 +375,85 @@ function showStory(s: Story) {
     stories = await getStories();
     render();
   });
-  $<HTMLFormElement>("#consent-update-form").onsubmit = async (event) => {
+  const consentForm = $<HTMLFormElement>("#consent-update-form");
+  const updateConsentNotices = attachConsentNotices(
+    consentForm,
+    () => s.license,
+    s.consent,
+  );
+  consentForm.onsubmit = async (event) => {
     event.preventDefault();
     const status = $("#consent-update-status");
     try {
-      const consent = readConsent(new FormData($<HTMLFormElement>("#consent-update-form")));
-      const updated = await updateStoryMetadata(s.id, { consent, consentHistory: [...(s.consentHistory ?? []), ...(s.consent ? [s.consent] : [])] });
+      const consent = readConsent(new FormData(consentForm), s.license, false);
+      const removed = withdrawnPermissions(s.consent, consent.permissions);
+      const updated = await updateConsentRecord(s.id, consent);
       s = updated;
       stories = await getStories();
       render();
-      status.textContent = "Consent recorded locally. Prior consent retained in history.";
-    } catch (error) { status.textContent = error instanceof Error ? error.message : "Could not save consent."; }
+      updateConsentNotices(consent);
+      $("#consent-summary").innerHTML = consentSummaryHtml(s);
+      status.textContent =
+        "Consent recorded locally. Prior consent retained in history." +
+        (removed.length ? ` ${withdrawalNotice}` : "") +
+        (commercialNeedsReview(consent)
+          ? " Commercial use needs review; no complete agreement is recorded and commercial use is not permitted."
+          : "");
+    } catch (error) {
+      status.textContent =
+        error instanceof Error ? error.message : "Could not save consent.";
+    }
   };
   $("#close-detail").onclick = () =>
     $<HTMLDialogElement>("#detail-dialog").close();
-  $("#export-audio").onclick = () => {
-    try { requirePermission(s, "share"); download(
-      s.audio,
-      `${s.id}.${s.audio.type.includes("mp4") ? "m4a" : s.audio.type.includes("mpeg") ? "mp3" : s.audio.type.includes("wav") ? "wav" : "webm"}`,
-    ); } catch (error) { toast(error instanceof Error ? error.message : "Export denied."); }
+  async function currentStory(): Promise<Story> {
+    const current = (await getStories()).find((story) => story.id === s.id);
+    if (!current) throw Error("Story is no longer available.");
+    return current;
+  }
+  $("#export-audio").onclick = async () => {
+    try {
+      const current = await currentStory();
+      download(sharedAudio(current), originalAudioFilename(current));
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Export denied.");
+    }
   };
-  $("#export-manifest").onclick = () =>
-    download(
-      new Blob([JSON.stringify(createManifest(s), null, 2)], {
-        type: "application/ld+json",
-      }),
-      `${s.id}.jsonld`,
-    );
+  $("#export-manifest").onclick = async () => {
+    try {
+      const current = await currentStory();
+      download(
+        new Blob([JSON.stringify(sharedPassport(current), null, 2)], {
+          type: "application/ld+json",
+        }),
+        `${current.id}.jsonld`,
+      );
+    } catch (error) {
+      toast(error instanceof Error ? error.message : "Export denied.");
+    }
+  };
+  $<HTMLFormElement>("#own-copy-form").onsubmit = async (event) => {
+    event.preventDefault();
+    const form = event.currentTarget as HTMLFormElement;
+    if (!new FormData(form).has("returnToStoryteller")) return;
+    const button = form.querySelector<HTMLButtonElement>("[type=submit]")!;
+    button.disabled = true;
+    try {
+      s = await recordOwnCopyExport(s.id);
+      const copy = await storytellerCopy(s);
+      download(copy, `${s.id}-storyteller-copy.zip`);
+      $("#consent-summary").innerHTML = consentSummaryHtml(s);
+      $("#own-copy-status").textContent =
+        "Own-copy download requested and noted on this device. This is not proof of delivery or third-party sharing permission.";
+    } catch (error) {
+      $("#own-copy-status").textContent =
+        error instanceof Error
+          ? error.message
+          : "Could not prepare the storyteller copy.";
+    } finally {
+      button.disabled = false;
+    }
+  };
   $("#save-notes").onclick = async () => {
     try {
       const transcript = $<HTMLTextAreaElement>("#transcript").value;

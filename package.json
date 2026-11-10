@@ -13,9 +13,13 @@
     "@netlify/functions": "^6.1.0",
     "@playwright/test": "^1.56.1",
     "@types/node": "^26.6.6",
+    "fake-indexeddb": "^6.2.8",
     "prettier": "^3.9.10",
     "tsx": "^4.20.6",
     "typescript": "~5.9.3",
     "vite": "^7.2.2"
+  },
+  "dependencies": {
+    "fflate": "^0.8.3"
   }
 }
