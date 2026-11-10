@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, expect } from "@playwright/test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { existsSync } from "node:fs";
@@ -21,21 +21,80 @@ const context = await browser.newContext({
   viewport: { width: 1440, height: 1080 },
 });
 const page = await context.newPage();
+const captureForm = page.locator("#capture-form");
 const errors = [];
 page.on("pageerror", (e) => errors.push(e.message));
 try {
   await page.goto("http://localhost:4173");
   await page.waitForFunction(() => navigator.serviceWorker.controller !== null);
-  await page.evaluate(async () => {
-    const cache = await caches.open("pamchenga-v4");
-    const paths = (await cache.keys()).map(
-      (request) => new URL(request.url).pathname,
+  const workerURL = await page.evaluate(
+    () => navigator.serviceWorker.controller.scriptURL,
+  );
+  // Read the controlling worker's source, never guess from existing cache names.
+  // Fail explicitly if its cache declaration changes shape.
+  const workerResponse = await context.request.get(workerURL);
+  assert.ok(workerResponse.ok(), "Could not read the controlling worker");
+  const workerSource = await workerResponse.text();
+  const cacheDeclarations = [
+    ...workerSource.matchAll(/^const CACHE = (["'])([^"'\r\n]+)\1;$/gm),
+  ];
+  assert.equal(
+    cacheDeclarations.length,
+    1,
+    "Expected one worker CACHE literal",
+  );
+  assert.match(workerSource, /caches\.open\(CACHE\)/);
+  const cacheName = cacheDeclarations[0][2];
+  // API requests bypass the worker and cannot populate the browser's cache.
+  const shellResponse = await context.request.get("http://localhost:4173/");
+  assert.ok(shellResponse.ok(), "Could not read the built app shell");
+  const shell = await shellResponse.text();
+  const assets = [...shell.matchAll(/["'](\/assets\/[^"']+)["']/g)].map(
+    (match) => match[1],
+  );
+  for (const extension of [".js", ".css"]) {
+    assert.ok(
+      assets.some((asset) => asset.endsWith(extension)),
+      `Built index.html must reference a ${extension} asset`,
     );
-    if (!paths.some((path) => path.endsWith(".js")))
-      throw Error("Offline JavaScript was not precached");
-    if (!paths.some((path) => path.endsWith(".css")))
-      throw Error("Offline CSS was not precached");
-  });
+  }
+  const builtAssets = [];
+  for (const path of new Set(assets)) {
+    if (!/\.(js|css)$/.test(path)) continue;
+    const response = await context.request.get(new URL(path, page.url()).href);
+    assert.ok(response.ok(), `Built asset is unavailable: ${path}`);
+    assert.match(
+      response.headers()["content-type"],
+      path.endsWith(".js") ? /javascript/ : /text\/css/,
+    );
+    const body = await response.text();
+    assert.ok(body.trim().length > 0, `Built asset is empty: ${path}`);
+    builtAssets.push({ path, body });
+  }
+  await page.evaluate(
+    async ({ cacheName, builtAssets }) => {
+      if (!(await caches.has(cacheName)))
+        throw Error(`Current worker cache does not exist: ${cacheName}`);
+      const cache = await caches.open(cacheName);
+      for (const extension of [".js", ".css"]) {
+        let found = false;
+        for (const asset of builtAssets.filter((asset) =>
+          asset.path.endsWith(extension),
+        )) {
+          const response = await cache.match(asset.path, { ignoreVary: true });
+          if (response?.ok && (await response.text()) === asset.body) {
+            found = true;
+            break;
+          }
+        }
+        if (!found)
+          throw Error(
+            `Offline built ${extension} referenced by index.html was not precached`,
+          );
+      }
+    },
+    { cacheName, builtAssets },
+  );
   await page.locator("#new-record").click();
   await page
     .getByRole("button", { name: "Start recording", exact: true })
@@ -55,12 +114,24 @@ try {
     .getByLabel("Location", { exact: true })
     .fill("Kawale, Lilongwe, Malawi");
   await page.getByLabel("Language", { exact: true }).fill("Chichewa");
-  await page.getByLabel("Person giving consent").fill("Storyteller");
-  await page.getByRole("checkbox", { name: /Permission to record this story/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to store this story locally/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to share this story/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to back up this story/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to use this story in classroom teaching/ }).check();
+  await captureForm.getByLabel("Person giving consent").fill("Storyteller");
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to record this story/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to store this story locally/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to share this story/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to back up this story/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", {
+      name: /Permission to use this story in classroom teaching/,
+    })
+    .check();
   await page.getByRole("button", { name: "Save story on this device" }).click();
   await page.locator(".story-card").waitFor();
   console.log("Story collection loaded");
@@ -85,7 +156,7 @@ try {
     .getByRole("button", { name: "Export passport", exact: true })
     .click();
   assert.match((await download).suggestedFilename(), /\.jsonld$/);
-  await page.getByRole("button", { name: "Queue for sync" }).click();
+  await page.getByRole("button", { name: "Queue for backup" }).click();
   await page.waitForTimeout(300);
   console.log("Queue result:", await page.locator("#toast").textContent());
   await page.locator("#toast").filter({ hasText: "Queued locally" }).waitFor();
@@ -145,14 +216,15 @@ try {
   await page
     .getByRole("button", { name: "Export lesson handout", exact: true })
     .click();
-  assert.match(await page.locator("#lesson-status").innerText(), /permission/);
+  await expect(page.locator("#lesson-status")).toHaveText(
+    "Record storyteller permission for classroom use before exporting.",
+  );
   await page.locator("[name=classroomPermission]").check();
   await page
     .getByRole("button", { name: "Export lesson handout", exact: true })
     .click();
-  assert.match(
-    await page.locator("#lesson-status").innerText(),
-    /Save your changes/,
+  await expect(page.locator("#lesson-status")).toHaveText(
+    "Save your changes before exporting the lesson.",
   );
   await page
     .getByRole("button", { name: "Save learning card", exact: true })
@@ -268,12 +340,24 @@ try {
   await page.getByLabel("Location", { exact: true }).fill("Mombasa, Kenya");
   await page.getByLabel("Region", { exact: true }).selectOption("East Africa");
   await page.getByLabel("Language", { exact: true }).fill("Kiswahili");
-  await page.getByLabel("Person giving consent").fill("Storyteller");
-  await page.getByRole("checkbox", { name: /Permission to record this story/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to store this story locally/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to share this story/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to back up this story/ }).check();
-  await page.getByRole("checkbox", { name: /Permission to use this story in classroom teaching/ }).check();
+  await captureForm.getByLabel("Person giving consent").fill("Storyteller");
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to record this story/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to store this story locally/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to share this story/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", { name: /Permission to back up this story/ })
+    .check();
+  await captureForm
+    .getByRole("checkbox", {
+      name: /Permission to use this story in classroom teaching/,
+    })
+    .check();
   await page.getByRole("button", { name: "Save story on this device" }).click();
   await page.waitForFunction(
     () => document.querySelectorAll(".story-card").length === 2,
