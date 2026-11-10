@@ -27,9 +27,21 @@ export function createManifest(story: Story) {
     "pam:consentVersion": story.consent?.version ?? null,
     "pam:consentRecordedAt": story.consent?.recordedAt ?? null,
     "pam:consentGiverRole": story.consent?.role ?? null,
-    "pam:permissions": Object.fromEntries(consentUses.map(use => [use, permitted(story, use)])),
+    "pam:consentGiver": story.consent?.giver ?? null,
+    "pam:permissions": Object.fromEntries(
+      consentUses.map((use) => [use, permitted(story, use)]),
+    ),
     "pam:consentEvidenceStatus": "self-reported-unverified",
     "pam:communityRestrictions": story.consent?.notes ?? null,
+    "pam:attributionWording": story.consent?.attribution ?? null,
+    "pam:benefitConditions": story.consent?.benefitConditions ?? null,
+    "pam:commercialRequested": story.consent?.permissions?.commercial === true,
+    "pam:commercialAgreement": story.consent?.commercialAgreement ?? null,
+    "pam:commercialReviewRequired":
+      story.consent?.permissions?.commercial === true &&
+      !permitted(story, "commercial"),
+    "pam:licenseAuthorization": story.consent?.licenseAuthorization ?? null,
+    "pam:ownCopyExportRequests": story.ownCopyExports ?? [],
     "pam:audioSha256": story.audioSha256,
     "pam:provenanceStatus": "unsigned",
     "pam:deviceSignature": null,

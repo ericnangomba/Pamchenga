@@ -1,7 +1,13 @@
-import { requirePermission } from "./consent";
+import { migrateStory, permitted, requirePermission } from "./consent";
 import { hostedWhisper, maxTranscriptionBytes } from "./transcription-config";
 import { tagTranscriptOpenings } from "./agents/opening-agent";
-import type { Story, SyncJob, TranscriptionJob, WhisperModel } from "./types";
+import type {
+  ConsentRecord,
+  Story,
+  SyncJob,
+  TranscriptionJob,
+  WhisperModel,
+} from "./types";
 export function openDatabase(): Promise<IDBDatabase> {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open("pamchenga", 2);
@@ -22,7 +28,7 @@ export async function saveStory(story: Story): Promise<void> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
     const tx = db.transaction("stories", "readwrite");
-    tx.objectStore("stories").put(story);
+    tx.objectStore("stories").put(migrateStory(story));
     tx.oncomplete = () => {
       db.close();
       resolve();
@@ -75,9 +81,9 @@ export async function getStories(): Promise<Story[]> {
     const req = tx.objectStore("stories").getAll();
     req.onsuccess = () =>
       resolve(
-        (req.result as Story[]).sort((a, b) =>
-          b.createdAt.localeCompare(a.createdAt),
-        ),
+        (req.result as Story[])
+          .map(migrateStory)
+          .sort((a, b) => b.createdAt.localeCompare(a.createdAt)),
       );
     req.onerror = () => reject(req.error);
     tx.oncomplete = () => db.close();
@@ -93,7 +99,12 @@ export async function queueStory(id: string): Promise<void> {
         tx.abort();
         return;
       }
-      try { requirePermission(stories.result as Story, "backup"); } catch { tx.abort(); return; }
+      try {
+        requirePermission(stories.result as Story, "backup");
+      } catch {
+        tx.abort();
+        return;
+      }
       const job: SyncJob = {
         id,
         attempts: 0,
@@ -118,15 +129,68 @@ export async function queueStory(id: string): Promise<void> {
 }
 
 /** Merge editable metadata in one transaction so notes and lesson saves cannot erase each other. */
-export async function updateStoryMetadata(
+export function updateStoryMetadata(
   id: string,
   changes: Partial<
-    Pick<Story, "transcript" | "ritualTags" | "learning" | "transcription" | "consent" | "consentHistory">
+    Pick<
+      Story,
+      | "transcript"
+      | "ritualTags"
+      | "learning"
+      | "transcription"
+      | "consent"
+      | "consentHistory"
+    >
   >,
+): Promise<Story> {
+  return mutateStory(id, (story) => migrateStory({ ...story, ...changes }));
+}
+
+/** Append history from the current stored record, never a stale dialog snapshot. */
+export function updateConsentRecord(
+  id: string,
+  consent: ConsentRecord,
+): Promise<Story> {
+  return mutateStory(
+    id,
+    (story) => ({
+      ...story,
+      consent,
+      consentHistory: [
+        ...(story.consentHistory ?? []),
+        ...(story.consent ? [story.consent] : []),
+      ],
+    }),
+    !permitted({ consent }, "backup"),
+  );
+}
+
+/** A request note is not evidence that a file was delivered to its recipient. */
+export function recordOwnCopyExport(id: string): Promise<Story> {
+  return mutateStory(id, (story) => ({
+    ...story,
+    ownCopyExports: [
+      ...(story.ownCopyExports ?? []),
+      {
+        requestedAt: new Date().toISOString(),
+        recipient: story.storyteller,
+        status: "download-requested",
+      },
+    ],
+  }));
+}
+
+async function mutateStory(
+  id: string,
+  change: (story: Story) => Story,
+  cancelBackup = false,
 ): Promise<Story> {
   const db = await openDatabase();
   return new Promise((resolve, reject) => {
-    const tx = db.transaction("stories", "readwrite");
+    const tx = db.transaction(
+      cancelBackup ? ["stories", "queue"] : "stories",
+      "readwrite",
+    );
     const store = tx.objectStore("stories");
     const request = store.get(id);
     let updated: Story | undefined;
@@ -135,8 +199,9 @@ export async function updateStoryMetadata(
         tx.abort();
         return;
       }
-      updated = { ...(request.result as Story), ...changes };
+      updated = change(migrateStory(request.result as Story));
       store.put(updated);
+      if (cancelBackup) tx.objectStore("queue").delete(id);
     };
     tx.oncomplete = () => {
       db.close();

@@ -1,12 +1,26 @@
 export type Region = "Southern Africa" | "East Africa" | "West Africa";
-export type ConsentUse = "record" | "store" | "share" | "backup" | "teach" | "commercial";
+export type ConsentUse =
+  "record" | "store" | "share" | "backup" | "teach" | "commercial";
 export interface ConsentRecord {
-  version: 1;
+  version: 1 | 2;
   giver: string;
   role: "storyteller" | "authorized-representative";
   recordedAt: string;
   permissions: Record<ConsentUse, boolean>;
   notes?: string;
+  attribution?: string;
+  benefitConditions?: string;
+  commercialAgreement?: {
+    parties: string;
+    agreedAt: string;
+    terms: string;
+  };
+  licenseAuthorization?: {
+    license: "CC BY-NC-SA 4.0";
+    recordedAt: string;
+    attestedBy: string;
+  };
+  migratedFromVersion?: 1;
 }
 export interface Story {
   id: string;
@@ -24,6 +38,11 @@ export interface Story {
   ritualTags?: string[];
   consent?: ConsentRecord;
   consentHistory?: ConsentRecord[];
+  ownCopyExports?: {
+    requestedAt: string;
+    recipient: string;
+    status: "download-requested";
+  }[];
   learning?: LearningCard;
   transcription?: TranscriptionResult;
 }

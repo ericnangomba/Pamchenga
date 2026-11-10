@@ -1,5 +1,5 @@
 import { validateWhisperResponse } from "/whisper-result.js";
-const CACHE = "pamchenga-v5";
+const CACHE = "pamchenga-v6";
 self.addEventListener("install", (event) => {
   event.waitUntil(
     (async () => {
@@ -145,6 +145,21 @@ async function performFlush() {
       try {
         const story = await read(db, "stories", job.id);
         if (!story) throw Error("Missing local story");
+        // A queued request must not outlive the current backup permission.
+        // Consent history is not authorization for a new upload attempt.
+        const consent = story.consent;
+        if (
+          !consent ||
+          ![1, 2].includes(consent.version) ||
+          typeof consent.giver !== "string" ||
+          !consent.giver.trim() ||
+          !["storyteller", "authorized-representative"].includes(
+            consent.role,
+          ) ||
+          !Number.isFinite(Date.parse(consent.recordedAt)) ||
+          consent.permissions?.backup !== true
+        )
+          continue;
         const data = new FormData();
         const { audio, ...metadata } = story;
         data.append("audio", audio, "original-audio");

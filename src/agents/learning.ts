@@ -49,6 +49,8 @@ export function exportLesson(story: Story): string {
     `# ${story.title}`,
     "",
     `Storyteller: ${story.storyteller}`,
+    `Credit: ${story.consent?.attribution?.trim() || story.storyteller}`,
+    `Benefit conditions: ${story.consent?.benefitConditions?.trim() || "None recorded."}`,
     `Language: ${story.language} · ${story.region}`,
     `License: ${story.license}`,
     `Original audio SHA-256: ${story.audioSha256}`,
