@@ -892,6 +892,70 @@
     background: #f0a81c !important;
     color: #2a1206 !important;
   }
+  #toast {
+    bottom: 112px !important;
+    left: 16px !important;
+    right: 16px !important;
+    top: auto !important;
+    transform: none !important;
+    width: auto !important;
+    max-width: none !important;
+    z-index: 60 !important;
+    background: #f0a81c !important;
+    color: #2a1206 !important;
+    font:
+      700 14px/1.35 Arial,
+      sans-serif !important;
+    border-radius: 18px !important;
+    text-align: center;
+  }
+  .a-hero > *:not(.a-sun) {
+    position: relative;
+    z-index: 1;
+  }
+  .a-sun {
+    z-index: 0;
+    opacity: 0.55;
+  }
+  .a-lang {
+    max-width: calc(100% - 46px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .a-tabs [data-t] span {
+    white-space: nowrap;
+  }
+  @media (max-width: 360px) {
+    .a-tabs {
+      grid-template-columns: 1fr 1fr 78px 1fr 1fr;
+    }
+    .a-tabs [data-t] span {
+      font-size: 10px;
+    }
+    .a-rec {
+      width: 64px;
+      height: 64px;
+    }
+    .a-hero h2 {
+      font-size: 30px;
+    }
+    .a-sun {
+      right: -100px;
+      top: -90px;
+    }
+  }
+  .a-play {
+    top: auto !important;
+    bottom: 12px;
+    right: 12px;
+  }
+  .a-tile em {
+    padding-right: 42px;
+  }
+  .a-lang {
+    max-width: 100% !important;
+  }
   /* sheets: capture and detail open as full-height app sheets on phones */
   dialog {
     width: 100vw;
