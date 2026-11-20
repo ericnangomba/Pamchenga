@@ -22,6 +22,7 @@ LANGUAGES = {"auto", "sw", "ha", "yo", "sn", "en", "af", "am", "so"}
 PROMPTS = {
     "Southern Africa": "Pamchenga! Padangokhala! Kwaphela Cosi! Pamberi ne ngano! Tilitonse! Ndaba! Dzake!",
     "East Africa": "Hadithi Hadithi! Hadithi Njoo!",
+    "Central Africa": "",
     "West Africa": "Tatsuniyarku ta zo! Alo o! Iro nwanụ! Leebon! Ta zo mu ji! Olo o! Iha! Leebona!",
 }
 

@@ -15,26 +15,30 @@ const prompts = [
   ["A journey", "How your family came to the place you call home."],
   ["A hand", "Something you were taught by watching, not by being told."],
 ];
-const regions: [string, string, string, string][] = [
-  [
-    "Southern Africa",
-    "Openings in the app's list",
-    "Pamchenga! · Padangokhala! · Tilitonse!",
-    "Inherited from the app's existing catalogue. Not yet reviewed with storytellers.",
-  ],
-  [
-    "East Africa",
-    "Openings in the app's list",
-    "Hadithi Hadithi! · Hadithi Njoo!",
-    "Inherited from the app's existing catalogue. Not yet reviewed with storytellers.",
-  ],
-  [
-    "West Africa",
-    "Openings in the app's list",
-    "Alo o! · Olo o!",
-    "Inherited from the app's existing catalogue. Not yet reviewed with storytellers.",
-  ],
+const REGIONS = [
+  "East Africa",
+  "Central Africa",
+  "Southern Africa",
+  "West Africa",
 ];
+const openings: Record<string, string> = {
+  "Southern Africa": "Pamchenga! · Padangokhala! · Tilitonse!",
+  "East Africa": "Hadithi Hadithi! · Hadithi Njoo!",
+  "West Africa": "Alo o! · Olo o!",
+};
+/** Languages the hosted transcription form offers as a hint (see whisper-ui). Accuracy is not verified. */
+const hints = new Set([
+  "swahili",
+  "kiswahili",
+  "hausa",
+  "yoruba",
+  "shona",
+  "afrikaans",
+  "amharic",
+  "somali",
+  "english",
+]);
+const hasHint = (l: string) => hints.has(l.trim().toLowerCase());
 function tines(seed: string, n = 13, h = 44) {
   const base = hash(seed);
   return Array.from({ length: n }, (_, i) => {
@@ -77,6 +81,8 @@ export function mountShell(actions: {
   let tab: Tab = "home";
   let list: Story[] = [];
   let answered = false;
+  let fRegion = "All";
+  let fLang = "All";
   try {
     answered = localStorage.getItem(KEY) === "1";
   } catch {
@@ -97,19 +103,49 @@ export function mountShell(actions: {
     const langs = new Set(list.map((s) => s.language.toLowerCase())).size;
     if (tab === "home")
       main.innerHTML = `<section class="a-hero"><div class="a-sun"><i></i><i></i><i></i></div><p class="a-kicker">PASS IT ON</p><h2>Every elder is a library.</h2><p>Open one shelf today. Record a voice before it goes quiet.</p><div class="a-chain" aria-hidden="true"><span><b>Elder</b></span><u></u><span><b>You</b></span><u></u><span><b>Next</b></span></div><button class="a-cta big" data-act="rec">${ic("mic")} Record a voice</button></section><section><h3 class="a-h">Ask them about</h3><div class="a-rail">${prompts.map(([t, b], i) => `<button class="a-prompt p${i % 3}" data-act="rec"><span>${t}</span><p>${b}</p></button>`).join("")}</div></section><section><div class="a-row"><h3 class="a-h">Gathered here</h3><span class="a-count">${list.length ? `${list.length} · ${mins} min · ${langs} ${langs === 1 ? "language" : "languages"}` : ""}</span></div>${list.length ? `<div class="a-rail tiles">${list.slice(0, 8).map(tile).join("")}</div>` : empty("The circle is quiet.", "Bring the first voice. It stays on this phone, even offline.")}</section><section class="a-promise"><div><b>Permission first</b><span>Recording and sharing are separate yes answers.</span></div><div><b>Works offline</b><span>Stored on this device. Export a copy to be safe.</span></div></section>`;
-    if (tab === "stories")
-      main.innerHTML = `<h2 class="a-title">Listen</h2><p class="a-sub">Voices gathered on this device.</p>${list.length ? `<div class="a-grid">${list.map(tile).join("")}</div>` : empty("Nothing to hear yet.", "Record a story or import audio you already hold with permission.")}<button class="a-ghost" data-act="imp">Import audio</button>`;
+    if (tab === "stories") {
+      const langs = [...new Set(list.map((x) => x.language.trim()))].sort();
+      const shown = list.filter(
+        (x) =>
+          (fRegion === "All" || x.region === fRegion) &&
+          (fLang === "All" || x.language.trim() === fLang),
+      );
+      const chips = (name: string, items: string[], cur: string) =>
+        `<div class="a-chips" aria-label="${name}">${["All", ...items].map((i) => `<button class="${i === cur ? "on" : ""}" data-${name}="${esc(i)}">${esc(i.replace(" Africa", ""))}</button>`).join("")}</div>`;
+      main.innerHTML = `<h2 class="a-title">Listen</h2><p class="a-sub">Voices gathered on this device, in every language they were told in.</p>${chips("region", REGIONS, fRegion)}${langs.length ? chips("lang", langs, fLang) : ""}${shown.length ? `<div class="a-grid">${shown.map(tile).join("")}</div>` : list.length ? `<div class="a-empty"><h3>Nothing here yet.</h3><p>No story matches this region and language.</p><button class="a-ghost" data-reset="1">Show everything</button></div>` : empty("Nothing to hear yet.", "Record a story or import audio you already hold with permission.")}<button class="a-ghost" data-act="imp">Import audio</button>`;
+    }
     if (tab === "passed")
       main.innerHTML = `<h2 class="a-title">Passed on</h2><p class="a-sub">Each story keeps its origin. Open one to see its fingerprint, permissions and unsigned passport.</p>${list.length ? `<div class="a-list">${list.map((s) => `<button class="a-line" data-id="${s.id}"><span class="a-badge ${hues[hash(s.language + s.region) % hues.length]}">${esc(s.storyteller.slice(0, 1).toUpperCase())}</span><span><strong>${esc(s.title)}</strong><em>from ${esc(s.storyteller)} · ${esc(s.location)}</em></span><u>›</u></button>`).join("")}</div>` : empty("No one has passed anything on yet.", "A passport is made when a story is saved.")}`;
-    if (tab === "atlas")
-      main.innerHTML = `<h2 class="a-title">Story openings</h2><p class="a-sub">Calls the app already recognises in transcripts. Examples to be checked with storytellers, not the whole story of any region.</p><div class="a-list">${regions.map(([r, n, c, note], i) => `<div class="a-region r${i}"><span class="a-tines">${tines(r, 15, 40)}</span><small>${r.toUpperCase()}</small><strong>${esc(n)}</strong><em>${esc(c)}</em><small>${esc(note)} ${list.filter((s) => s.region === r).length} in your circle.</small></div>`).join("")}</div>`;
+    if (tab === "atlas") {
+      const byLang = new Map<string, { n: number; regions: Set<string> }>();
+      list.forEach((x) => {
+        const k = x.language.trim();
+        const e = byLang.get(k) ?? { n: 0, regions: new Set<string>() };
+        e.n++;
+        e.regions.add(x.region);
+        byLang.set(k, e);
+      });
+      main.innerHTML = `<h2 class="a-title">Languages and regions</h2><p class="a-sub">The circle is open to every language and dialect. Region is where a story is gathered, never a limit on its language.</p><h3 class="a-h">Regions</h3><div class="a-list">${REGIONS.map((r, i) => `<div class="a-region r${i}"><span class="a-tines">${tines(r, 15, 40)}</span><strong>${r}</strong><em>${openings[r] ? esc(openings[r]) : "No openings listed yet. Add them with storytellers."}</em><small>${openings[r] ? "Openings are inherited from the app's list and not yet reviewed with storytellers. " : ""}${list.filter((x) => x.region === r).length} in your circle.</small></div>`).join("")}</div><h3 class="a-h">Languages in your circle</h3>${byLang.size ? `<div class="a-list">${[...byLang].map(([l, e]) => `<div class="a-line"><span class="a-badge ${hues[hash(l) % hues.length]}">${esc(l.slice(0, 1).toUpperCase())}</span><span><strong>${esc(l)}</strong><em>${e.n} ${e.n === 1 ? "story" : "stories"} · ${esc([...e.regions].map((r) => r.replace(" Africa", "")).join(", "))}</em><em class="a-asr">${hasHint(l) ? "Recording and notes. A transcription language hint exists; accuracy is not verified." : "Recording and notes. No transcription hint yet; automatic detection may be tried and can be wrong."}</em></span></div>`).join("")}</div>` : '<p class="a-sub">Languages appear here as stories are saved.</p>'}`;
+    }
   }
   root.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
     const act = t.closest<HTMLElement>("[data-act]")?.dataset.act;
     const id = t.closest<HTMLElement>("[data-id]")?.dataset.id;
+    const fr = t.closest<HTMLElement>("[data-region]")?.dataset.region;
+    const fl = t.closest<HTMLElement>("[data-lang]")?.dataset.lang;
     const tb = t.closest<HTMLElement>("[data-t]")?.dataset.t as Tab | undefined;
-    if (t.closest("#a-rec") || act === "rec") actions.record();
+    if (fr !== undefined) {
+      fRegion = fr;
+      draw();
+    } else if (fl !== undefined) {
+      fLang = fl;
+      draw();
+    } else if (t.closest("[data-reset]")) {
+      fRegion = "All";
+      fLang = "All";
+      draw();
+    } else if (t.closest("#a-rec") || act === "rec") actions.record();
     else if (act === "imp") actions.importAudio();
     else if (id) actions.open(id);
     else if (tb) {

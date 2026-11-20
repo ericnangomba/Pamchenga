@@ -167,26 +167,27 @@ export function attachLearningEditor(
       controls.forEach((control) => (control.disabled = false));
     }
   });
-  document.querySelector<HTMLButtonElement>("#export-lesson")!.onclick = async () => {
-    try {
-      if (dirty || saving)
-        throw Error("Save your changes before exporting the lesson.");
-      const latest = (await import("./storage")).getStories;
-      const current = (await latest()).find(item => item.id === story.id);
-      if (!current) throw Error("Story is no longer available.");
-      download(
-        new Blob([exportLesson(current)], {
-          type: "text/markdown;charset=utf-8",
-        }),
-        `${story.id}-lesson.md`,
-      );
-      status.textContent =
-        "Credited lesson handout exported. Export audio separately if permitted.";
-    } catch (error) {
-      status.textContent =
-        error instanceof Error
-          ? error.message
-          : "Could not export this lesson.";
-    }
-  };
+  document.querySelector<HTMLButtonElement>("#export-lesson")!.onclick =
+    async () => {
+      try {
+        if (dirty || saving)
+          throw Error("Save your changes before exporting the lesson.");
+        const latest = (await import("./storage")).getStories;
+        const current = (await latest()).find((item) => item.id === story.id);
+        if (!current) throw Error("Story is no longer available.");
+        download(
+          new Blob([exportLesson(current)], {
+            type: "text/markdown;charset=utf-8",
+          }),
+          `${story.id}-lesson.md`,
+        );
+        status.textContent =
+          "Credited lesson handout exported. Export audio separately if permitted.";
+      } catch (error) {
+        status.textContent =
+          error instanceof Error
+            ? error.message
+            : "Could not export this lesson.";
+      }
+    };
 }

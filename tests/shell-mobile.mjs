@@ -111,6 +111,50 @@ for (const w of [320, 390]) {
     return nav - last;
   });
   assert.ok(clear >= 0, `content hidden by tab bar by ${-clear}px at ${w}`);
+  // multi-region, open-ended languages: Central Africa + a language outside the suggestions
+  await page
+    .locator("#audio-file")
+    .setInputFiles({ name: "C.wav", mimeType: "audio/wav", buffer: wav });
+  await page.getByLabel("Story title").fill("Central synthetic");
+  await page.getByLabel("Storyteller", { exact: true }).fill("Test Three");
+  await page.getByLabel("Location", { exact: true }).fill("Test place");
+  await page
+    .getByLabel("Region", { exact: true })
+    .selectOption("Central Africa");
+  await page.getByLabel("Language", { exact: true }).fill("Lingala");
+  await f.getByLabel("Person giving consent").fill("Test Three");
+  for (const re of [/record this story/, /store this story locally/])
+    await f.getByRole("checkbox", { name: re }).check();
+  await page.getByRole("button", { name: "Save story on this device" }).click();
+  await page.waitForFunction(
+    () => document.querySelectorAll(".a-tile").length >= 3,
+  );
+  await page.locator("[data-t=stories]").click();
+  await page.locator("[data-region='Central Africa']").click();
+  assert.equal(await page.locator(".a-grid .a-tile").count(), 1);
+  await page.locator("[data-region='Southern Africa']").click();
+  assert.equal(await page.locator(".a-grid .a-tile").count(), 2);
+  await page.locator("[data-region='All']").click();
+  await page.locator("[data-lang='Lingala']").click();
+  assert.equal(await page.locator(".a-grid .a-tile").count(), 1);
+  await page.locator("[data-lang='All']").click();
+  assert.equal(await page.locator(".a-grid .a-tile").count(), 3);
+  await page.locator("[data-t=atlas]").click();
+  const atlasText = await page.locator("#a-main").innerText();
+  assert.match(atlasText, /Lingala/);
+  assert.match(atlasText, /Central/);
+  assert.match(atlasText, /accuracy is not verified/);
+  assert.ok(
+    await page.evaluate(
+      () => document.documentElement.scrollWidth <= innerWidth + 1,
+    ),
+    "atlas no horizontal scroll " + w,
+  );
+  await page.screenshot({ path: `${out}/s-${w}-lang-atlas.png` });
+  await page.locator("[data-t=stories]").click();
+  await page.locator("[data-region='East Africa']").click();
+  await page.screenshot({ path: `${out}/s-${w}-lang-filter.png` });
+  await page.locator("[data-region='All']").click();
   // listen tab, open detail, play, export
   await page.locator("[data-t=stories]").click();
   await page

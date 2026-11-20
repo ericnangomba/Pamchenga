@@ -1,4 +1,5 @@
-export type Region = "Southern Africa" | "East Africa" | "West Africa";
+export type Region =
+  "Southern Africa" | "East Africa" | "Central Africa" | "West Africa";
 export type ConsentUse =
   "record" | "store" | "share" | "backup" | "teach" | "commercial";
 export interface ConsentRecord {

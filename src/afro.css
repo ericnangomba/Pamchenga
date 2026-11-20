@@ -956,6 +956,36 @@
   .a-lang {
     max-width: 100% !important;
   }
+  .a-chips {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    margin: 0 -18px 12px;
+    padding: 0 18px;
+    scrollbar-width: none;
+  }
+  .a-chips::-webkit-scrollbar {
+    display: none;
+  }
+  .a-chips button {
+    flex: none;
+    border: 2px solid #ffffff33 !important;
+    border-radius: 99px;
+    padding: 8px 14px;
+    font:
+      700 13px Arial,
+      sans-serif !important;
+    min-height: 38px;
+  }
+  .a-chips button.on {
+    background: var(--ochre) !important;
+    color: #2a1206 !important;
+    border-color: var(--ochre) !important;
+  }
+  .a-asr {
+    color: var(--ochre) !important;
+    opacity: 1 !important;
+  }
   /* sheets: capture and detail open as full-height app sheets on phones */
   dialog {
     width: 100vw;
