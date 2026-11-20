@@ -18,21 +18,21 @@ const prompts = [
 const regions: [string, string, string, string][] = [
   [
     "Southern Africa",
-    "Malawi, Pamchenga storytelling call",
+    "Openings in the app's list",
     "Pamchenga! · Padangokhala! · Tilitonse!",
-    "The chant this app is named for: a call-and-response from MBC Radio 1 Malawi.",
+    "Inherited from the app's existing catalogue. Not yet reviewed with storytellers.",
   ],
   [
     "East Africa",
-    "Swahili opening",
+    "Openings in the app's list",
     "Hadithi Hadithi! · Hadithi Njoo!",
-    "An opening the app already listens for in transcripts.",
+    "Inherited from the app's existing catalogue. Not yet reviewed with storytellers.",
   ],
   [
     "West Africa",
-    "Openings from the app's list",
+    "Openings in the app's list",
     "Alo o! · Olo o!",
-    "Language not labelled in the app yet. Add it with the storyteller.",
+    "Inherited from the app's existing catalogue. Not yet reviewed with storytellers.",
   ],
 ];
 function tines(seed: string, n = 13, h = 44) {
@@ -82,7 +82,7 @@ export function mountShell(actions: {
   } catch {
     /* ignore */
   }
-  root.innerHTML = `<div class="a-entry" id="a-entry" ${answered ? "hidden" : ""}><div class="a-band"></div><div class="a-call"><p class="a-kicker">THE CIRCLE IS CALLING</p><h1 id="a-call-word">Pamchenga!</h1><button class="a-drum" id="a-drum" aria-label="Answer the call: Padangokhala"><span class="r r1"></span><span class="r r2"></span><span class="r r3"></span><span class="r r4"></span><span class="core"><b>Padangokhala!</b></span></button><p class="a-hint" id="a-hint">Tap the drum and answer.</p><p class="a-note">A storytelling call from Malawi</p></div><div class="a-mbira" aria-hidden="true">${tines("entry", 17, 70)}</div></div><header class="a-top"><div class="a-logo"><img src="/icon.svg" alt=""><b>Pamchenga</b></div><span class="a-net" id="a-net"></span></header><main id="a-main"></main><nav class="a-tabs" aria-label="Pamchenga"><button data-t="home">${ic("home")}<span>Circle</span></button><button data-t="stories">${ic("ear")}<span>Listen</span></button><button class="a-rec" id="a-rec" aria-label="Record a voice">${ic("mic")}</button><button data-t="passed">${ic("hands")}<span>Passed on</span></button><button data-t="atlas">${ic("sun")}<span>Atlas</span></button></nav>`;
+  root.innerHTML = `<div class="a-entry" id="a-entry" ${answered ? "hidden" : ""}><div class="a-band"></div><div class="a-call"><p class="a-kicker">THE CIRCLE IS CALLING</p><h1 id="a-call-word">Pamchenga!</h1><button class="a-drum" id="a-drum" aria-label="Answer the call: Padangokhala"><span class="r r1"></span><span class="r r2"></span><span class="r r3"></span><span class="r r4"></span><span class="core"><b>Padangokhala!</b></span></button><p class="a-hint" id="a-hint">Tap the drum and answer.</p></div><div class="a-mbira" aria-hidden="true">${tines("entry", 17, 70)}</div></div><header class="a-top"><div class="a-logo"><img src="/icon.svg" alt=""><b>Pamchenga</b></div><span class="a-net" id="a-net"></span></header><main id="a-main"></main><nav class="a-tabs" aria-label="Pamchenga"><button data-t="home">${ic("home")}<span>Circle</span></button><button data-t="stories">${ic("ear")}<span>Listen</span></button><button class="a-rec" id="a-rec" aria-label="Record a voice">${ic("mic")}</button><button data-t="passed">${ic("hands")}<span>Passed on</span></button><button data-t="atlas">${ic("sun")}<span>Atlas</span></button></nav>`;
   document.body.append(root);
   const main = root.querySelector<HTMLElement>("#a-main")!;
   const tile = (s: Story) =>
@@ -102,7 +102,7 @@ export function mountShell(actions: {
     if (tab === "passed")
       main.innerHTML = `<h2 class="a-title">Passed on</h2><p class="a-sub">Each story keeps its origin. Open one to see its fingerprint, permissions and unsigned passport.</p>${list.length ? `<div class="a-list">${list.map((s) => `<button class="a-line" data-id="${s.id}"><span class="a-badge ${hues[hash(s.language + s.region) % hues.length]}">${esc(s.storyteller.slice(0, 1).toUpperCase())}</span><span><strong>${esc(s.title)}</strong><em>from ${esc(s.storyteller)} · ${esc(s.location)}</em></span><u>›</u></button>`).join("")}</div>` : empty("No one has passed anything on yet.", "A passport is made when a story is saved.")}`;
     if (tab === "atlas")
-      main.innerHTML = `<h2 class="a-title">Story openings</h2><p class="a-sub">Calls the app already recognises in transcripts. These are examples, not the whole story of any region.</p><div class="a-list">${regions.map(([r, n, c, note], i) => `<div class="a-region r${i}"><span class="a-tines">${tines(r, 15, 40)}</span><small>${r.toUpperCase()}</small><strong>${esc(n)}</strong><em>${esc(c)}</em><small>${esc(note)} ${list.filter((s) => s.region === r).length} in your circle.</small></div>`).join("")}</div>`;
+      main.innerHTML = `<h2 class="a-title">Story openings</h2><p class="a-sub">Calls the app already recognises in transcripts. Examples to be checked with storytellers, not the whole story of any region.</p><div class="a-list">${regions.map(([r, n, c, note], i) => `<div class="a-region r${i}"><span class="a-tines">${tines(r, 15, 40)}</span><small>${r.toUpperCase()}</small><strong>${esc(n)}</strong><em>${esc(c)}</em><small>${esc(note)} ${list.filter((s) => s.region === r).length} in your circle.</small></div>`).join("")}</div>`;
   }
   root.addEventListener("click", (e) => {
     const t = e.target as HTMLElement;
