@@ -986,6 +986,38 @@
     color: var(--ochre) !important;
     opacity: 1 !important;
   }
+  .a-line {
+    flex-direction: column;
+    align-items: stretch !important;
+    gap: 10px;
+  }
+  .a-open {
+    display: flex;
+    gap: 14px;
+    align-items: center;
+    text-align: left;
+  }
+  .a-open > span:last-child {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+  .a-rv {
+    align-self: flex-start;
+    border: 2px solid var(--ochre) !important;
+    color: var(--ochre) !important;
+    border-radius: 99px;
+    padding: 9px 16px;
+    font:
+      800 13px Arial,
+      sans-serif !important;
+    min-height: 40px;
+  }
+  .a-line.confirmed .a-rv {
+    border-color: #ffffff44 !important;
+    color: var(--ink) !important;
+  }
   /* sheets: capture and detail open as full-height app sheets on phones */
   dialog {
     width: 100vw;
@@ -1000,4 +1032,289 @@
   dialog::backdrop {
     background: #1b0f0b;
   }
+}
+
+dialog#review-dialog {
+  background: #1b0f0b !important;
+  color: #fff3d9 !important;
+  border: 0 !important;
+  border-image: none !important;
+  width: 100vw;
+  max-width: 100vw;
+  height: 100dvh;
+  max-height: 100dvh;
+  margin: 0;
+  padding: 0 18px 40px;
+  overflow: auto;
+  font-family: Georgia, serif;
+}
+dialog#review-dialog::backdrop {
+  background: #000;
+}
+@media (min-width: 801px) {
+  dialog#review-dialog {
+    max-width: 620px;
+    margin: auto;
+    height: 92vh;
+    border-radius: 24px !important;
+  }
+}
+#review-dialog * {
+  box-sizing: border-box;
+}
+#review-dialog h2 {
+  color: #fff3d9;
+  font-size: 28px;
+  margin: 6px 0 2px;
+}
+#review-dialog .rv-top {
+  position: sticky;
+  top: 0;
+  z-index: 3;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 14px 0 10px;
+  background: #1b0f0b;
+  font:
+    700 11px Arial,
+    sans-serif;
+  letter-spacing: 2px;
+  color: #f0a81c;
+  border-top: 6px solid transparent;
+  border-image: repeating-linear-gradient(
+      90deg,
+      #f0a81c 0 14px,
+      #cf4f2a 14px 28px,
+      #2f7a45 28px 42px,
+      #2c1810 42px 56px
+    )
+    6;
+}
+#review-dialog .rv-x {
+  background: none;
+  border: 0;
+  color: #fff3d9;
+  font-size: 30px;
+  min-width: 44px;
+  min-height: 44px;
+}
+#review-dialog .rv-sub {
+  margin: 0 0 10px;
+  font:
+    500 14px Arial,
+    sans-serif;
+  opacity: 0.75;
+}
+#review-dialog .rv-player {
+  position: sticky;
+  top: 50px;
+  z-index: 2;
+  background: #1b0f0b;
+  padding: 6px 0 10px;
+}
+#review-dialog audio {
+  width: 100%;
+}
+#review-dialog .rv-lead {
+  font:
+    500 15px/1.45 Arial,
+    sans-serif;
+  margin: 6px 0 10px;
+}
+#review-dialog .rv-status {
+  font:
+    800 14px/1.35 Arial,
+    sans-serif;
+  color: #f0a81c;
+  margin-bottom: 8px;
+}
+#review-dialog .rv-progress {
+  position: relative;
+  font:
+    600 13px Arial,
+    sans-serif;
+  padding-bottom: 12px;
+  margin-bottom: 6px;
+}
+#review-dialog .rv-progress i {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: #f0a81c;
+  transition: width 0.3s;
+}
+#review-dialog .rv-progress::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 6px;
+  border-radius: 3px;
+  background: #ffffff1f;
+  z-index: -1;
+}
+#review-dialog .rv-basis {
+  font:
+    500 13px/1.4 Arial,
+    sans-serif;
+  opacity: 0.75;
+}
+#review-dialog .rv-seg {
+  background: #2c1810;
+  border-radius: 22px;
+  padding: 14px;
+  margin: 12px 0;
+  border: 2px solid #ffffff14;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+#review-dialog .rv-seg.ok {
+  border-color: #3f9a5a;
+}
+#review-dialog .rv-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+}
+#review-dialog button {
+  font-family: Arial, sans-serif;
+  font-weight: 700;
+  font-size: 14px;
+  border-radius: 99px;
+  min-height: 44px;
+  padding: 0 16px;
+  border: 2px solid #ffffff33;
+  background: none;
+  color: #fff3d9;
+}
+#review-dialog .rv-play {
+  background: #f0a81c;
+  color: #2a1206;
+  border-color: #f0a81c;
+}
+#review-dialog .rv-n {
+  font:
+    700 12px Arial,
+    sans-serif;
+  opacity: 0.6;
+}
+#review-dialog textarea,
+#review-dialog input:not([type="checkbox"]),
+#review-dialog select {
+  width: 100%;
+  background: #fff3d9;
+  color: #2a1206;
+  border: 0;
+  border-radius: 14px;
+  padding: 12px;
+  font:
+    500 16px/1.4 Georgia,
+    serif;
+}
+#review-dialog .rv-machine {
+  margin: 0;
+  font:
+    500 13px/1.4 Arial,
+    sans-serif;
+  opacity: 0.7;
+}
+#review-dialog .rv-flags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#review-dialog .rv-flags button {
+  font-size: 13px;
+  min-height: 40px;
+}
+#review-dialog .rv-flags button.on {
+  background: #cf4f2a;
+  border-color: #cf4f2a;
+}
+#review-dialog .rv-check.on {
+  background: #2f7a45;
+  border-color: #2f7a45;
+}
+#review-dialog .rv-check:disabled {
+  opacity: 0.4;
+}
+#review-dialog .rv-sign {
+  background: #2c1810;
+  border-radius: 22px;
+  padding: 16px;
+  margin-top: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+#review-dialog .rv-sign h3 {
+  margin: 0;
+  font-size: 21px;
+}
+#review-dialog .rv-sign label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font:
+    600 13px Arial,
+    sans-serif;
+}
+#review-dialog .rv-listen {
+  flex-direction: row !important;
+  gap: 10px !important;
+  align-items: flex-start;
+  font-size: 14px !important;
+  line-height: 1.4;
+}
+.rv-listen input {
+  width: 22px;
+  height: 22px;
+  flex: none;
+}
+#review-dialog .rv-confirm {
+  background: #f0a81c;
+  color: #2a1206;
+  border-color: #f0a81c;
+  min-height: 52px;
+  font-size: 16px;
+}
+#review-dialog .rv-confirm:disabled {
+  opacity: 0.35;
+}
+#review-dialog .rv-block {
+  margin: 0;
+  font:
+    600 13px/1.4 Arial,
+    sans-serif;
+  color: #ffb48a;
+}
+.rv-block:empty {
+  display: none;
+}
+#review-dialog .rv-done {
+  margin: 0;
+  font:
+    700 14px/1.4 Arial,
+    sans-serif;
+  color: #7fe0a0;
+}
+#review-dialog .rv-fine {
+  margin: 0;
+  font:
+    500 12.5px/1.45 Arial,
+    sans-serif;
+  opacity: 0.7;
+}
+#review-dialog .rv-sign label,
+#review-dialog .rv-sign h3 {
+  color: #fff3d9;
+}
+#review-dialog .rv-sign label span {
+  color: #fff3d9;
 }

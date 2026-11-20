@@ -1,3 +1,4 @@
+import { reviewSummary } from "../review";
 import type { Story } from "../types";
 import { consentUses, permitted } from "../consent";
 export async function hashAudio(audio: Blob): Promise<string> {
@@ -46,6 +47,9 @@ export function createManifest(story: Story) {
     "pam:provenanceStatus": "unsigned",
     "pam:deviceSignature": null,
     "pam:c2paStatus": "requires-external-signer",
+    ...(story.review
+      ? { "pam:transcriptReview": reviewSummary(story.review) }
+      : {}),
   };
 }
 export interface ProvenanceAdapter {

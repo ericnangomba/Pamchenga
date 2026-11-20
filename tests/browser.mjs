@@ -612,11 +612,9 @@ try {
     "Commercial use needs review",
   );
   await expect(
-    detail
-      .locator("#consent-update-form")
-      .getByRole("checkbox", {
-        name: /Permission to use this story commercially/,
-      }),
+    detail.locator("#consent-update-form").getByRole("checkbox", {
+      name: /Permission to use this story commercially/,
+    }),
   ).toBeChecked();
   await detail.locator("#close-detail").click();
   console.log(

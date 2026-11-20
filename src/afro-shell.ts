@@ -1,4 +1,5 @@
 import type { Story } from "./types";
+import { stage, statusLine } from "./review";
 type Tab = "home" | "stories" | "passed" | "atlas";
 const KEY = "pamchenga.answered";
 const esc = (s: string) =>
@@ -74,6 +75,7 @@ function pluck() {
 export function mountShell(actions: {
   record(): void;
   open(id: string): void;
+  review(id: string): void;
   importAudio(): void;
 }) {
   const root = document.createElement("div");
@@ -115,7 +117,7 @@ export function mountShell(actions: {
       main.innerHTML = `<h2 class="a-title">Listen</h2><p class="a-sub">Voices gathered on this device, in every language they were told in.</p>${chips("region", REGIONS, fRegion)}${langs.length ? chips("lang", langs, fLang) : ""}${shown.length ? `<div class="a-grid">${shown.map(tile).join("")}</div>` : list.length ? `<div class="a-empty"><h3>Nothing here yet.</h3><p>No story matches this region and language.</p><button class="a-ghost" data-reset="1">Show everything</button></div>` : empty("Nothing to hear yet.", "Record a story or import audio you already hold with permission.")}<button class="a-ghost" data-act="imp">Import audio</button>`;
     }
     if (tab === "passed")
-      main.innerHTML = `<h2 class="a-title">Passed on</h2><p class="a-sub">Each story keeps its origin. Open one to see its fingerprint, permissions and unsigned passport.</p>${list.length ? `<div class="a-list">${list.map((s) => `<button class="a-line" data-id="${s.id}"><span class="a-badge ${hues[hash(s.language + s.region) % hues.length]}">${esc(s.storyteller.slice(0, 1).toUpperCase())}</span><span><strong>${esc(s.title)}</strong><em>from ${esc(s.storyteller)} · ${esc(s.location)}</em></span><u>›</u></button>`).join("")}</div>` : empty("No one has passed anything on yet.", "A passport is made when a story is saved.")}`;
+      main.innerHTML = `<h2 class="a-title">Passed on</h2><p class="a-sub">Each story keeps its origin. Open one to see its fingerprint, permissions and unsigned passport.</p>${list.length ? `<div class="a-list">${list.map((s) => `<div class="a-line ${stage(s)}"><button class="a-open" data-id="${s.id}"><span class="a-badge ${hues[hash(s.language + s.region) % hues.length]}">${esc(s.storyteller.slice(0, 1).toUpperCase())}</span><span><strong>${esc(s.title)}</strong><em>from ${esc(s.storyteller)} · ${esc(s.location)}</em><em class="a-asr">${esc(statusLine(s))}</em></span></button><button class="a-rv" data-review="${s.id}">${stage(s) === "confirmed" ? "Open" : "Listen and correct"}</button></div>`).join("")}</div>` : empty("No one has passed anything on yet.", "A passport is made when a story is saved.")}`;
     if (tab === "atlas") {
       const byLang = new Map<string, { n: number; regions: Set<string> }>();
       list.forEach((x) => {
@@ -134,8 +136,10 @@ export function mountShell(actions: {
     const id = t.closest<HTMLElement>("[data-id]")?.dataset.id;
     const fr = t.closest<HTMLElement>("[data-region]")?.dataset.region;
     const fl = t.closest<HTMLElement>("[data-lang]")?.dataset.lang;
+    const rv = t.closest<HTMLElement>("[data-review]")?.dataset.review;
     const tb = t.closest<HTMLElement>("[data-t]")?.dataset.t as Tab | undefined;
-    if (fr !== undefined) {
+    if (rv) actions.review(rv);
+    else if (fr !== undefined) {
       fRegion = fr;
       draw();
     } else if (fl !== undefined) {

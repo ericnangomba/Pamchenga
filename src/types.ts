@@ -46,6 +46,7 @@ export interface Story {
   }[];
   learning?: LearningCard;
   transcription?: TranscriptionResult;
+  review?: TranscriptReview;
 }
 export interface Segment {
   start: number;
@@ -95,4 +96,35 @@ export interface TranscriptionJob {
   needsAccess?: boolean;
   error?: string;
   createdAt: string;
+}
+
+export type ReviewerRole =
+  "storyteller" | "authorized-representative" | "other-fluent-speaker";
+export interface ReviewSegment {
+  id: string;
+  start: number;
+  end: number;
+  /** The machine draft for this span, kept for comparison. Never overwritten. */
+  machineText?: string;
+  text: string;
+  confirmed: boolean;
+  flags: { unsure: boolean; unclear: boolean; cultural: boolean };
+  note?: string;
+}
+export interface ReviewSignoff {
+  reviewer: string;
+  role: ReviewerRole;
+  confirmedAt: string;
+  unclearCount: number;
+  statement: string;
+}
+/** Human listen-and-correct record. A prototype: it records who checked, not that the text is correct. */
+export interface TranscriptReview {
+  version: 1;
+  basedOn: "machine-draft" | "typed-by-reviewer";
+  machineResultId?: string;
+  segments: ReviewSegment[];
+  updatedAt: string;
+  signoff?: ReviewSignoff;
+  editedSinceSignoff?: boolean;
 }

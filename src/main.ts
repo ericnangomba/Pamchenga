@@ -1,6 +1,7 @@
 import "./style.css";
 import "./afro.css";
 import { mountShell } from "./afro-shell";
+import { openReview } from "./review-ui";
 import {
   consentFields,
   consentSummaryHtml,
@@ -101,6 +102,14 @@ mountLearningPanel(download);
 const shell = mountShell({
   record: () => $("#new-record").click(),
   importAudio: () => $("#import").click(),
+  review: (id) => {
+    const s = stories.find((x) => x.id === id);
+    if (s)
+      openReview(s, async () => {
+        stories = await getStories();
+        render();
+      });
+  },
   open: (id) => {
     const s = stories.find((x) => x.id === id);
     if (s) showStory(s);
@@ -379,7 +388,7 @@ function showStory(s: Story) {
   if (playbackUrl) URL.revokeObjectURL(playbackUrl);
   playbackUrl = URL.createObjectURL(s.audio);
   $("#detail").innerHTML =
-    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Your notes stay separate from the Whisper draft below. Wisdom extraction still needs a localized model.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><form id="own-copy-form"><p class="muted small-text">Return the unchanged original audio and unsigned passport together. This does not authorize third-party sharing.</p><label class="consent"><input type="checkbox" name="returnToStoryteller" required> I am returning this copy to the storyteller or their claimed authorized representative, not sharing it with others.</label><button class="button secondary" type="submit">Give the storyteller their copy</button><p id="own-copy-status" role="status" class="small-text"></p></form><button class="text-button" id="sync-story">Queue for backup →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p><section class="consent-editor"><h3>Storyteller consent</h3><p class="muted small-text">Legacy stories have no recorded authorization. Preserve the story locally, and confirm each permitted use before sharing, backup or teaching. Consent updates are recorded on this device.</p><div id="consent-summary">${consentSummaryHtml(s)}</div><form id="consent-update-form">${consentFields(s.consent)}<button class="button secondary" type="submit">Save consent record</button><p id="consent-update-status" role="status"></p></form></section><button class="text-button danger" id="delete-story">Delete story from this device</button>`;
+    `<div class="dialog-top"><span class="eyebrow">A STORY IN YOUR CIRCLE</span><button class="close" id="close-detail" aria-label="Close">×</button></div><h2>${esc(s.title)}</h2><p class="muted">${esc(s.storyteller)} · ${esc(s.location)}</p><audio controls src="${playbackUrl}"></audio><div class="detail-tags"><span>${esc(s.language)}</span><span>${esc(s.region)}</span><span>Saved on device</span></div><h3>Story passport</h3><p class="muted">Original audio fingerprint · SHA-256</p><code class="hash">${s.audioSha256}</code><p class="notice">C2PA signature pending. This fingerprint verifies file integrity; a configured C2PA signer is required for certified provenance and device signatures.</p><p class="muted">${esc(s.license)}</p><label>Transcript or storyteller’s notes<textarea id="transcript" rows="4" placeholder="Keep native spellings, tone marks, chants, and songs intact.">${esc(s.transcript)}</textarea></label><p class="muted small-text">Your notes stay separate from the Whisper draft below. Wisdom extraction still needs a localized model.</p><div id="ritual-tags">${ritualTagsHtml(s.ritualTags)}</div><div class="detail-actions"><button class="button primary" id="save-notes">Save notes</button><button class="button secondary" id="open-review">Listen and correct</button><button class="button secondary" id="export-audio">Export audio</button><button class="button secondary" id="export-manifest">Export passport</button></div><form id="own-copy-form"><p class="muted small-text">Return the unchanged original audio and unsigned passport together. This does not authorize third-party sharing.</p><label class="consent"><input type="checkbox" name="returnToStoryteller" required> I am returning this copy to the storyteller or their claimed authorized representative, not sharing it with others.</label><button class="button secondary" type="submit">Give the storyteller their copy</button><p id="own-copy-status" role="status" class="small-text"></p></form><button class="text-button" id="sync-story">Queue for backup →</button><p class="muted small-text">Sync needs a configured /api/stories service. Queued stories stay on this device until acknowledged.</p><section class="consent-editor"><h3>Storyteller consent</h3><p class="muted small-text">Legacy stories have no recorded authorization. Preserve the story locally, and confirm each permitted use before sharing, backup or teaching. Consent updates are recorded on this device.</p><div id="consent-summary">${consentSummaryHtml(s)}</div><form id="consent-update-form">${consentFields(s.consent)}<button class="button secondary" type="submit">Save consent record</button><p id="consent-update-status" role="status"></p></form></section><button class="text-button danger" id="delete-story">Delete story from this device</button>`;
   attachLearningEditor(s, download, async (updated) => {
     s = updated;
     stories = await getStories();
@@ -391,6 +400,12 @@ function showStory(s: Story) {
     stories = await getStories();
     render();
   });
+  $("#open-review").onclick = () =>
+    openReview(s, async (updated) => {
+      s = updated;
+      stories = await getStories();
+      render();
+    });
   const consentForm = $<HTMLFormElement>("#consent-update-form");
   const updateConsentNotices = attachConsentNotices(
     consentForm,

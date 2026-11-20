@@ -138,6 +138,7 @@ export function updateStoryMetadata(
       | "ritualTags"
       | "learning"
       | "transcription"
+      | "review"
       | "consent"
       | "consentHistory"
     >
