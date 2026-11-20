@@ -76,7 +76,8 @@ export function updateSegment(
         change.flags !== undefined ||
         (change.note !== undefined && change.note !== s.note);
       if (edited && change.confirmed === undefined) next.confirmed = false;
-      if (next.flags.unsure) next.confirmed = false;
+      // An unresolved part (unsure or inaudible) can never be checked.
+      if (next.flags.unsure || next.flags.unclear) next.confirmed = false;
       return next;
     }),
     now,
@@ -102,12 +103,12 @@ export function blockers(r: TranscriptReview): string[] {
   const out: string[] = [];
   const unsure = r.segments.filter((s) => s.flags.unsure).length;
   const unchecked = r.segments.filter((s) => !s.confirmed).length;
-  const empty = r.segments.filter(
-    (s) => !s.text.trim() && !s.flags.unclear,
-  ).length;
+  const unclear = r.segments.filter((s) => s.flags.unclear).length;
+  const empty = r.segments.filter((s) => !s.text.trim()).length;
   if (unsure) out.push(`${unsure} marked unsure`);
+  if (unclear) out.push(`${unclear} can't be heard clearly`);
   if (unchecked) out.push(`${unchecked} not yet checked`);
-  if (empty) out.push(`${empty} with no text (write it or mark it unclear)`);
+  if (empty) out.push(`${empty} with no text`);
   return out;
 }
 export function signOff(
@@ -159,15 +160,19 @@ export function statusLine(story: Story): string {
       return "Machine draft, not checked by a person.";
     case "in-review": {
       const done = r!.segments.filter((s) => s.confirmed).length;
-      return `Being checked: ${done} of ${r!.segments.length} parts.`;
+      const un = r!.segments.filter((s) => s.flags.unsure).length;
+      const cl = r!.segments.filter((s) => s.flags.unclear).length;
+      const open = [
+        un ? `${un} unsure` : "",
+        cl ? `${cl} can't be heard clearly` : "",
+      ].filter(Boolean);
+      return `Partly checked: ${done} of ${r!.segments.length} parts${open.length ? `, ${open.join(", ")}` : ""}. Not confirmed as a whole.`;
     }
     case "edited-after-confirmation":
       return "Edited since it was confirmed. Needs checking again.";
     case "confirmed": {
       const s = r!.signoff!;
-      const u = s.unclearCount
-        ? `, with ${s.unclearCount} unclear ${s.unclearCount === 1 ? "part" : "parts"} marked`
-        : "";
+      const u = "";
       const who =
         s.role === "storyteller"
           ? "the storyteller"

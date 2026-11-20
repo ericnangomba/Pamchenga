@@ -72,7 +72,7 @@ for (const [w, mobile] of [
   await dlg.waitFor();
   assert.match(
     await dlg.locator("#rv-status").innerText(),
-    /Being checked: 0 of 1/,
+    /Partly checked: 0 of 1/,
   );
   assert.ok(
     await dlg.evaluate((d) => d.scrollWidth <= d.clientWidth + 1),
@@ -106,6 +106,19 @@ for (const [w, mobile] of [
   await dlg.locator("[data-flag^='unsure:']").nth(1).click();
   await dlg.locator("[data-flag^='cultural:']").nth(1).click();
   await dlg.locator("[data-note]").first().fill("synthetic cultural note");
+  await dlg.locator("[data-flag^='unclear:']").nth(1).click();
+  assert.equal(await dlg.locator("[data-check]").nth(1).isDisabled(), true);
+  assert.equal(
+    await dlg.locator("#rv-confirm").isDisabled(),
+    true,
+    "inaudible part blocks confirm",
+  );
+  assert.match(await dlg.locator("#rv-blockers").innerText(), /heard clearly/);
+  assert.match(
+    await dlg.locator("#rv-status").innerText(),
+    /Not confirmed as a whole/,
+  );
+  await dlg.locator("[data-flag^='unclear:']").nth(1).click();
   await dlg.locator("[data-check]").nth(1).click();
   assert.equal(await dlg.locator("#rv-confirm").isDisabled(), false);
   await dlg.locator("#rv-confirm").scrollIntoViewIfNeeded();

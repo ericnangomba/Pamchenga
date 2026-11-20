@@ -1318,3 +1318,22 @@ dialog#review-dialog::backdrop {
 #review-dialog .rv-sign label span {
   color: #fff3d9;
 }
+#review-dialog .rv-short {
+  margin: 0;
+  font:
+    600 14px/1.45 Arial,
+    sans-serif;
+}
+#review-dialog .rv-more summary {
+  font:
+    700 13px Arial,
+    sans-serif;
+  color: #f0a81c;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  cursor: pointer;
+}
+#review-dialog .rv-more[open] .rv-fine {
+  margin-top: 6px;
+}

@@ -64,7 +64,7 @@ test("editing a checked segment un-checks it; machine text is never overwritten"
   assert.equal(r.segments[0].machineText, "first");
   assert.equal(r.segments[0].text, "corrected");
 });
-test("an unsure flag blocks checking and confirmation; unclear is allowed but counted", () => {
+test("unsure and can't-hear-clearly parts cannot be checked and block whole-text confirmation", () => {
   let r = startReview(withDraft);
   for (const s of r.segments) r = updateSegment(r, s.id, { confirmed: true });
   assert.deepEqual(blockers(r), []);
@@ -76,8 +76,23 @@ test("an unsure flag blocks checking and confirmation; unclear is allowed but co
     flags: { unsure: false, unclear: true },
   });
   r = updateSegment(r, r.segments[0].id, { confirmed: true });
-  const done = signOff(r, "Thoko", "storyteller", true);
-  assert.equal(done.signoff?.unclearCount, 1);
+  assert.equal(
+    r.segments[0].confirmed,
+    false,
+    "inaudible part cannot be checked",
+  );
+  assert.match(blockers(r).join(), /heard clearly/);
+  assert.throws(() => signOff(r, "Thoko", "storyteller", true), /Not ready/);
+  assert.match(
+    statusLine({ ...withDraft, review: r } as Story),
+    /Partly checked.*can't be heard clearly.*Not confirmed as a whole/,
+  );
+  r = updateSegment(r, r.segments[0].id, { flags: { unclear: false } });
+  r = updateSegment(r, r.segments[0].id, { confirmed: true });
+  assert.equal(
+    signOff(r, "Thoko", "storyteller", true).signoff?.unclearCount,
+    0,
+  );
 });
 test("sign-off needs a name and the listened-to-all statement", () => {
   let r = startReview(withDraft);
