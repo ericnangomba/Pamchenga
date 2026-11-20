@@ -1,4 +1,6 @@
 import "./style.css";
+import "./afro.css";
+import { mountShell } from "./afro-shell";
 import {
   consentFields,
   consentSummaryHtml,
@@ -96,7 +98,16 @@ attachConsentNotices(
       .value as Story["license"],
 );
 mountLearningPanel(download);
+const shell = mountShell({
+  record: () => $("#new-record").click(),
+  importAudio: () => $("#import").click(),
+  open: (id) => {
+    const s = stories.find((x) => x.id === id);
+    if (s) showStory(s);
+  },
+});
 function render() {
+  shell.update(stories);
   updateLearningMetrics(stories);
   $("#story-total").textContent = String(stories.length);
   $("#nav-count").textContent = String(stories.length);
