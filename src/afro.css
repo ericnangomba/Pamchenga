@@ -715,8 +715,8 @@
     z-index: 50;
     background: radial-gradient(
       90% 55% at 50% 38%,
-      #c4451d 0%,
-      #6b2412 45%,
+      #e8884a 0%,
+      #d99c62 50%,
       #e4c698 100%
     );
     display: flex;
@@ -731,8 +731,8 @@
   .a-entry.answered {
     background: radial-gradient(
       90% 60% at 50% 38%,
-      #f0a81c 0%,
-      #c4451d 40%,
+      #f5b83a 0%,
+      #e8884a 40%,
       #e4c698 100%
     );
   }
@@ -1237,10 +1237,12 @@ dialog#review-dialog::backdrop {
 #review-dialog .rv-flags button.on {
   background: #cf4f2a;
   border-color: #cf4f2a;
+  color: #fff8e8 !important;
 }
 #review-dialog .rv-check.on {
-  background: #2f7a45;
-  border-color: #2f7a45;
+  background: #1f5c33;
+  border-color: #1f5c33;
+  color: #fff8e8 !important;
 }
 #review-dialog .rv-check:disabled {
   opacity: 0.4;
@@ -1349,5 +1351,33 @@ dialog#review-dialog::backdrop {
   }
   .a-chain span:nth-child(5) {
     color: #fff3d9;
+  }
+}
+
+@media (max-width: 800px) {
+  :root {
+    --muted: #6a4a32;
+  }
+  .a-region {
+    color: #fff8e8;
+  }
+  #record-time,
+  #record-status {
+    color: #4a2f1c !important;
+  }
+  .a-region strong,
+  .a-region em,
+  .a-region small {
+    color: #fff8e8;
+  }
+}
+
+@media (max-width: 800px) {
+  :is(#detail-dialog, #capture-dialog)
+    :is(p, small, label, h3, h4, div, span):not(button *, .eyebrow, .record-orb, pre, code, .tag) {
+    color: #4a2f1c;
+  }
+  :is(#detail-dialog, #capture-dialog) .eyebrow {
+    color: #a8321b;
   }
 }
